@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: sedarchahar_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sedarchahar
+      POSTGRES_PASSWORD: sedarchahar_dev_pass
+      POSTGRES_DB: sedarchahar
+    ports:
+      - "5432:5432"
+    volumes:
+      - sedarchahar_pgdata:/var/lib/postgresql/data
+
+volumes:
+  sedarchahar_pgdata:

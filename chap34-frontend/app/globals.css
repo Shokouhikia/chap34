@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: #faf9fc;
+  color: #1a1a2e;
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-l from-purple to-purple-deep px-6 py-3 font-bold text-white shadow-lg shadow-purple/30 transition hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0;
+}
+
+.btn-outline {
+  @apply inline-flex items-center justify-center gap-2 rounded-full border border-line bg-white px-6 py-3 font-bold text-navy transition hover:border-navy;
+}
+
+.card {
+  @apply rounded-md2 border border-line bg-white p-6 shadow-sm;
+}
+
+.field-input {
+  @apply w-full rounded-xl border border-line px-4 py-3 text-sm text-ink outline-none transition focus:border-purple focus:ring-2 focus:ring-purple-tint;
+}
+
+.price-box {
+  @apply rounded-2xl bg-purple-tint p-4;
+}
+
+.price-row {
+  @apply mb-2 flex justify-between text-sm font-semibold text-navy/80;
+}
+
+.price-row.total {
+  @apply mt-1.5 border-t border-dashed border-line pt-2.5 text-base font-extrabold text-navy;
+}
