@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { api } from "@/lib/api";
 
 export default function OtpPage() {
@@ -28,13 +28,21 @@ export default function OtpPage() {
     setError(null);
     try {
       await api.verifyOtp(phone, digits.join(""));
-      router.push(`/checkout/address?photoId=${photoId}`);
+      router.push(`/checkout/print?photoId=${photoId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "کد اشتباه است");
     } finally {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    const code = digits.join("");
+    if (code.length === 4 && !digits.includes("") && !loading) {
+      submit();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [digits]);
 
   return (
     <div className="mx-auto max-w-sm text-center">

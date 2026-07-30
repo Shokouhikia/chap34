@@ -9,5 +9,6 @@ passlib[bcrypt]==1.7.4
 python-multipart==0.0.9
 
 # Local AI gender detection (InsightFace buffalo_l on CPU via ONNX Runtime).
+opencv-python-headless==4.10.0.84
 insightface==1.0.1
 onnxruntime==1.28.0

@@ -25,8 +25,10 @@ SIZE_MULTIPLIER = {
 
 PAPER_MULTIPLIER = {
     PaperType.GLOSSY: 1.0,
-    PaperType.MATTE: 0.95,  # matte slightly cheaper in this demo pricing
+    PaperType.MATTE: 0.95,
 }
+
+SHIPPING_COST = 45_000
 
 
 def get_price(size: PrintSize, paper_type: PaperType, quantity: int) -> int:
@@ -42,6 +44,10 @@ def get_price(size: PrintSize, paper_type: PaperType, quantity: int) -> int:
     base = BASE_PRICE_BY_QUANTITY[quantity]
     total = base * SIZE_MULTIPLIER[size] * PAPER_MULTIPLIER[paper_type]
     return round(total / 1000) * 1000
+
+
+def get_shipping_cost() -> int:
+    return SHIPPING_COST
 
 
 def get_pricing_matrix() -> dict:

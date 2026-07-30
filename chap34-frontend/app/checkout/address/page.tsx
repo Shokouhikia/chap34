@@ -59,50 +59,86 @@ export default function AddressPage() {
         اطلاعات پستی
       </h2>
 
-      <div className="space-y-3">
-        <input
-          placeholder="نام و نام خانوادگی"
-          className="field-input"
-          value={form.full_name}
-          onChange={(e) => update("full_name", e.target.value)}
-        />
-        <div className="flex gap-3">
-          <input
-            placeholder="استان"
-            className="field-input"
-            value={form.province}
-            onChange={(e) => update("province", e.target.value)}
-          />
-          <input
-            placeholder="شهر"
-            className="field-input"
-            value={form.city}
-            onChange={(e) => update("city", e.target.value)}
-          />
-        </div>
-        <input
-          placeholder="آدرس کامل"
-          className="field-input"
-          value={form.full_address}
-          onChange={(e) => update("full_address", e.target.value)}
-        />
-        <div className="flex gap-3">
-          <input
-            placeholder="کد پستی"
-            className="field-input"
-            dir="ltr"
-            value={form.postal_code}
-            onChange={(e) => update("postal_code", e.target.value)}
-          />
-          <input
-            placeholder="شماره تماس"
-            className="field-input"
-            dir="ltr"
-            value={form.phone}
-            onChange={(e) => update("phone", e.target.value)}
-          />
-        </div>
-      </div>
+       <div className="space-y-3">
+         <div>
+           <label htmlFor="full_name" className="mb-1 block text-xs font-bold text-navy">
+             نام و نام خانوادگی
+           </label>
+           <input
+             id="full_name"
+             placeholder="مثلاً علی محمدی"
+             className="field-input"
+             value={form.full_name}
+             onChange={(e) => update("full_name", e.target.value)}
+           />
+         </div>
+         <div className="flex gap-3">
+           <div className="flex-1">
+             <label htmlFor="province" className="mb-1 block text-xs font-bold text-navy">
+               استان
+             </label>
+             <input
+               id="province"
+               placeholder="مثلاً تهران"
+               className="field-input"
+               value={form.province}
+               onChange={(e) => update("province", e.target.value)}
+             />
+           </div>
+           <div className="flex-1">
+             <label htmlFor="city" className="mb-1 block text-xs font-bold text-navy">
+               شهر
+             </label>
+             <input
+               id="city"
+               placeholder="مثلاً کرج"
+               className="field-input"
+               value={form.city}
+               onChange={(e) => update("city", e.target.value)}
+             />
+           </div>
+         </div>
+         <div>
+           <label htmlFor="full_address" className="mb-1 block text-xs font-bold text-navy">
+             آدرس کامل
+           </label>
+           <input
+             id="full_address"
+             placeholder="مثلاً خیابان ولیعصر، کوچه بهار، پلاک ۱۲، واحد ۳"
+             className="field-input"
+             value={form.full_address}
+             onChange={(e) => update("full_address", e.target.value)}
+           />
+         </div>
+         <div className="flex gap-3">
+           <div className="flex-1">
+             <label htmlFor="postal_code" className="mb-1 block text-xs font-bold text-navy">
+               کد پستی
+             </label>
+             <input
+               id="postal_code"
+               placeholder="مثلاً ۱۲۳۴۵۶۷۸۹۰"
+               className="field-input"
+               dir="ltr"
+               value={form.postal_code}
+               onChange={(e) => update("postal_code", e.target.value)}
+             />
+           </div>
+           <div className="flex-1">
+             <label htmlFor="phone" className="mb-1 block text-xs font-bold text-navy">
+               شماره تماس
+             </label>
+             <input
+               id="phone"
+               placeholder="مثلاً ۰۹۱۲۱۲۳۴۵۶۷"
+               className="field-input"
+               dir="ltr"
+               value={form.phone}
+               onChange={(e) => update("phone", e.target.value)}
+             />
+           </div>
+         </div>
+       </div>
 
       {error && (
         <p className="mt-4 text-center text-sm font-bold text-red-500">{error}</p>

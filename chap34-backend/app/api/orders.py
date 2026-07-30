@@ -18,7 +18,7 @@ from sqlmodel import Session, select
 
 from app.api.deps import get_current_user
 from app.core.database import get_session
-from app.core.pricing import get_price
+from app.core.pricing import get_price, get_shipping_cost
 from app.models.address import Address
 from app.models.order import Order, OrderStatus, OrderStatusHistory, PaperType, PrintSize
 from app.models.payment import Payment, PaymentGateway, PaymentStatus
@@ -69,9 +69,12 @@ def create_order(
     user: User = Depends(get_current_user),
 ):
     try:
-        amount = get_price(body.size, body.paper_type, body.quantity)
+        print_amount = get_price(body.size, body.paper_type, body.quantity)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+    shipping_cost = get_shipping_cost()
+    amount = print_amount + shipping_cost
 
     address = Address(
         user_id=user.id,
@@ -101,7 +104,12 @@ def create_order(
     db.add(OrderStatusHistory(order_id=order.id, status=OrderStatus.CREATED))
     db.commit()
 
-    return {"order_id": order.id, "amount_due": amount}
+    return {
+        "order_id": order.id,
+        "amount_due": amount,
+        "print_amount": print_amount,
+        "shipping_cost": shipping_cost,
+    }
 
 
 @router.post("/payment/init")

@@ -11,9 +11,6 @@ Runs on CPU by default (CPUExecutionProvider) so it works without a GPU.
 """
 import threading
 
-import cv2
-import numpy as np
-
 from app.models.photo import Gender
 
 # InsightFace is imported lazily inside _get_app() so importing this module
@@ -55,6 +52,9 @@ def detect_gender(image_path: str) -> tuple[Gender, float]:
     the largest face (by bounding-box area) is used. Raises NoFaceError
     when no face is found so the caller can return a clean API error.
     """
+    import cv2
+    import numpy as np
+
     img = cv2.imread(image_path)
     if img is None:
         raise NoFaceError("تصویر قابل خواندن نیست")

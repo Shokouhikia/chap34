@@ -29,12 +29,23 @@ async function request(path: string, options: RequestInit = {}) {
   const accessToken = getAccessToken();
   if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || `درخواست ناموفق بود (${res.status})`);
+  try {
+    const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `درخواست ناموفق بود (${res.status})`);
+    }
+    return res.json();
+  } catch (err) {
+    if (err instanceof TypeError) {
+      throw new Error(
+        "اتصال به سرور برقرار نشد. مطمئن شوید بک‌اند روی " +
+          API_URL +
+          " در حال اجراست."
+      );
+    }
+    throw err;
   }
-  return res.json();
 }
 
 export type Gender = "male" | "female";
@@ -49,18 +60,29 @@ export const api = {
     const sessionToken = getSessionToken();
     if (sessionToken) headers["X-Session-Token"] = sessionToken;
 
-    const res = await fetch(`${API_URL}/api/photo/upload`, {
-      method: "POST",
-      body: form,
-      headers,
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail || `آپلود عکس ناموفق بود (${res.status})`);
+    try {
+      const res = await fetch(`${API_URL}/api/photo/upload`, {
+        method: "POST",
+        body: form,
+        headers,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || `آپلود عکس ناموفق بود (${res.status})`);
+      }
+      const data = await res.json();
+      setSessionToken(data.session_token);
+      return data as { photo_id: string; session_token: string; url: string };
+    } catch (err) {
+      if (err instanceof TypeError) {
+        throw new Error(
+          "اتصال به سرور برقرار نشد. مطمئن شوید بک‌اند روی " +
+            API_URL +
+            " در حال اجراست."
+        );
+      }
+      throw err;
     }
-    const data = await res.json();
-    setSessionToken(data.session_token);
-    return data as { photo_id: string; session_token: string; url: string };
   },
 
   detectGender: (photoId: string) =>
@@ -132,7 +154,7 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }) as Promise<{ order_id: string; amount_due: number }>,
+    }) as Promise<{ order_id: string; amount_due: number; print_amount: number; shipping_cost: number }>,
 
   initPayment: (orderId: string) =>
     request(`/api/payment/init?order_id=${orderId}`, { method: "POST" }) as Promise<{

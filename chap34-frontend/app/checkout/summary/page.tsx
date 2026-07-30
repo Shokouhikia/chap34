@@ -17,6 +17,7 @@ export default function SummaryPage() {
 
   const [orderId, setOrderId] = useState<string | null>(null);
   const [amount, setAmount] = useState<number | null>(null);
+  const [shippingCost, setShippingCost] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,10 +44,11 @@ export default function SummaryPage() {
           phone: draft.phone!,
         },
       })
-      .then((data) => {
-        setOrderId(data.order_id);
-        setAmount(data.amount_due);
-      })
+       .then((data) => {
+         setOrderId(data.order_id);
+         setAmount(data.amount_due);
+         setShippingCost(data.shipping_cost);
+       })
       .catch((err) => setError(err instanceof Error ? err.message : "خطای ناشناخته"))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -87,14 +89,20 @@ export default function SummaryPage() {
             <span>نوع کاغذ</span>
             <span>{PAPER_LABEL[draft.paperType]}</span>
           </div>
-          <div className="price-row">
-            <span>تعداد</span>
-            <span>{toman(draft.quantity)} قطعه</span>
-          </div>
-          <div className="price-row total">
-            <span>مبلغ قابل پرداخت</span>
-            <span>{amount !== null ? `${toman(amount)} تومان` : "..."}</span>
-          </div>
+           <div className="price-row">
+             <span>تعداد</span>
+             <span>{toman(draft.quantity)} قطعه</span>
+           </div>
+           {shippingCost !== null && (
+             <div className="price-row">
+               <span>هزینه ارسال</span>
+               <span>{toman(shippingCost)} تومان</span>
+             </div>
+           )}
+           <div className="price-row total">
+             <span>مبلغ قابل پرداخت</span>
+             <span>{amount !== null ? `${toman(amount)} تومان` : "..."}</span>
+           </div>
         </div>
       )}
 

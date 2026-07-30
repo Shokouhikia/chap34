@@ -14,8 +14,8 @@ export default function PhonePage() {
   const [error, setError] = useState<string | null>(null);
 
   async function submit() {
-    if (phone.length < 10) {
-      setError("شماره موبایل را کامل وارد کنید");
+    if (!/^\d{11}$/.test(phone)) {
+      setError("شماره موبایل باید ۱۱ رقم باشد");
       return;
     }
     setLoading(true);
@@ -39,15 +39,19 @@ export default function PhonePage() {
         کد تأیید به این شماره ارسال می‌شود.
       </p>
 
-      <input
-        type="tel"
-        inputMode="numeric"
-        placeholder="۰۹۱۲xxxxxxx"
-        value={phone}
-        onChange={(e) => setPhone(e.target.value)}
-        className="field-input mb-4 text-center"
-        dir="ltr"
-      />
+       <input
+         type="tel"
+         inputMode="numeric"
+         placeholder="۰۹۱۲xxxxxxx"
+         maxLength={11}
+         value={phone}
+         onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+         onKeyDown={(e) => {
+           if (e.key === "Enter") submit();
+         }}
+         className="field-input mb-4 text-center"
+         dir="ltr"
+       />
 
       {error && <p className="mb-3 text-sm font-bold text-red-500">{error}</p>}
 
