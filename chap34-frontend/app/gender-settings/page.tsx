@@ -27,7 +27,11 @@ const BACKGROUNDS = [
   { value: "gray", label: "طوسی", color: "#e6e6e6" },
 ];
 
-type Photo = { id: string; original_file_url: string };
+type Photo = {
+  id: string;
+  original_file_url: string;
+  detected_gender?: Gender | null;
+};
 
 export default function GenderSettingsPage() {
   const router = useRouter();
@@ -35,13 +39,20 @@ export default function GenderSettingsPage() {
   const photoId = searchParams.get("photoId") || "";
 
   const [photo, setPhoto] = useState<Photo | null>(null);
+  // Gender is decided automatically by the AI; it is not user-selectable.
   const [gender, setGender] = useState<Gender>("male");
   const [outfit, setOutfit] = useState("no_change");
   const [background, setBackground] = useState("white");
 
   useEffect(() => {
     if (!photoId) return;
-    api.getPhoto(photoId).then(setPhoto).catch(() => {});
+    api
+      .getPhoto(photoId)
+      .then((p: Photo) => {
+        setPhoto(p);
+        if (p.detected_gender) setGender(p.detected_gender);
+      })
+      .catch(() => {});
     const draft = genderDraft.get();
     if (draft) {
       setGender(draft.gender);
@@ -81,29 +92,9 @@ export default function GenderSettingsPage() {
         )}
       </div>
 
-      <div className="mb-5 flex rounded-full border border-line bg-white p-1">
-        <button
-          onClick={() => {
-            setGender("male");
-            setOutfit("no_change");
-          }}
-          className={`flex-1 rounded-full py-2 text-sm font-bold ${
-            gender === "male" ? "bg-gradient-to-l from-purple to-purple-deep text-white" : "text-muted"
-          }`}
-        >
-          مرد
-        </button>
-        <button
-          onClick={() => {
-            setGender("female");
-            setOutfit("no_change");
-          }}
-          className={`flex-1 rounded-full py-2 text-sm font-bold ${
-            gender === "female" ? "bg-gradient-to-l from-purple to-purple-deep text-white" : "text-muted"
-          }`}
-        >
-          زن
-        </button>
+      <div className="mb-5 flex items-center justify-center gap-2 rounded-full border border-line bg-purple-tint px-4 py-2.5 text-sm font-bold text-purple-deep">
+        <span>جنسیت تشخیص‌داده‌شده:</span>
+        <span>{gender === "male" ? "مرد" : "زن"}</span>
       </div>
 
       <label className="mb-2 block text-xs font-bold text-navy">نوع پوشش</label>

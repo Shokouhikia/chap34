@@ -1,21 +1,15 @@
 """
 Photo pipeline endpoints: upload -> detect-gender -> generate -> result.
 
-DEMO NOTE: none of the AI here is real yet.
-- `detect_gender` always guesses "male" with a fake confidence score.
-  Real version: a local face model (e.g. InsightFace buffalo_l) so there's
-  no dependency on an external service.
-- `generate_photo` just copies the original file again and fakes a short
-  delay. Real version: an image-generation pipeline that swaps the outfit
-  and background based on `outfit_type` / `background_color`, most likely
-  run as an async background job (Celery/RQ) with polling instead of the
-  blocking call used here for the demo.
-Both are intentionally kept as simple synchronous endpoints so the same
-upload -> detect -> generate -> result API shape can be demoed end to end;
-swapping the fake bodies for real model calls should not require changing
-the endpoints themselves.
+Gender detection is real: it runs the InsightFace `buffalo_l` model
+locally (see app.services.gender_detection). No external service is used.
+
+DEMO NOTE: `generate_photo` is still fake — it just copies the original
+file again and fakes a short delay. Real version: an image-generation
+pipeline that swaps the outfit and background based on `outfit_type` /
+`background_color`, most likely run as an async background job (Celery/RQ)
+with polling instead of the blocking call used here for the demo.
 """
-import random
 import shutil
 import time
 import uuid
@@ -29,6 +23,7 @@ from app.api.deps import get_or_create_anonymous_session
 from app.core.database import get_session
 from app.models.photo import Gender, Photo, PhotoStatus
 from app.models.session import AnonymousSession
+from app.services.gender_detection import NoFaceError, detect_gender as run_gender_detection
 
 router = APIRouter(prefix="/api/photo", tags=["photo"])
 
@@ -79,13 +74,24 @@ def detect_gender(photo_id: uuid.UUID, db: Session = Depends(get_session)):
     db.add(photo)
     db.commit()
 
-    time.sleep(0.8)  # pretend this is where the face/gender model runs
+    # Run the real InsightFace gender model on the uploaded file.
+    image_path = UPLOAD_DIR / Path(photo.original_file_url).name
+    try:
+        detected, confidence = run_gender_detection(str(image_path))
+    except NoFaceError as exc:
+        photo.status = PhotoStatus.FAILED
+        db.add(photo)
+        db.commit()
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception:
+        photo.status = PhotoStatus.FAILED
+        db.add(photo)
+        db.commit()
+        raise HTTPException(status_code=500, detail="تشخیص جنسیت با خطا مواجه شد")
 
-    # DEMO: fake guess. Real version would run a local face model here.
-    guessed_gender = random.choice([Gender.MALE, Gender.FEMALE])
-    photo.detected_gender = guessed_gender
-    photo.selected_gender = guessed_gender  # default; user can override in the UI
-    photo.detection_confidence = round(random.uniform(0.88, 0.99), 2)
+    photo.detected_gender = detected
+    photo.selected_gender = detected  # gender is decided automatically now
+    photo.detection_confidence = confidence
     photo.status = PhotoStatus.DETECTED
     db.add(photo)
     db.commit()

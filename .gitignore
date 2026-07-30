@@ -1,0 +1,71 @@
+# =========================
+# Environment / Secrets
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Python build
+build/
+dist/
+*.egg-info/
+
+# =========================
+# Node / Next.js
+# =========================
+node_modules/
+.next/
+out/
+.turbo/
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+
+# =========================
+# Uploads / Generated Files
+# =========================
+uploads/
+media/
+static/uploads/
+
+# =========================
+# Database
+# =========================
+*.db
+*.sqlite
+*.sqlite3
+
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Temporary
+# =========================
+*.tmp
+*.temp
+.cache/

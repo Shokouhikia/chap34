@@ -54,7 +54,10 @@ export const api = {
       body: form,
       headers,
     });
-    if (!res.ok) throw new Error("آپلود عکس ناموفق بود");
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `آپلود عکس ناموفق بود (${res.status})`);
+    }
     const data = await res.json();
     setSessionToken(data.session_token);
     return data as { photo_id: string; session_token: string; url: string };

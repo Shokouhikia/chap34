@@ -14,11 +14,8 @@ export default function HomePage() {
         ثانیه آماده می‌کند.
       </p>
       <div className="flex flex-wrap justify-center gap-3">
-        <Link href="/capture?mode=camera" className="btn-primary">
-          📷 گرفتن عکس
-        </Link>
-        <Link href="/capture?mode=gallery" className="btn-outline">
-          🖼️ آپلود عکس
+        <Link href="/capture" className="btn-primary">
+          شروع کنید
         </Link>
       </div>
       <p className="mt-6 text-xs text-muted">
