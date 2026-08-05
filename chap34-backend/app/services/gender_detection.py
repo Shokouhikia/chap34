@@ -3,41 +3,13 @@ Real gender detection using InsightFace (buffalo_l model pack).
 
 The `genderage.onnx` model bundled in `buffalo_l` predicts a binary
 gender (0 = female, 1 = male) plus an age estimate for each detected
-face. We load the whole FaceAnalysis app once (lazy singleton) because
-model init + ONNX session creation is expensive and must not run per
-request.
+face. The FaceAnalysis app itself is loaded once and shared with the
+photo-generation pipeline via app.services.face_engine.
 
 Runs on CPU by default (CPUExecutionProvider) so it works without a GPU.
 """
-import threading
-
 from app.models.photo import Gender
-
-# InsightFace is imported lazily inside _get_app() so importing this module
-# (and therefore starting the API) stays fast and does not require the model
-# files to be present at import time.
-_app = None
-_app_lock = threading.Lock()
-
-
-def _get_app():
-    """Load the FaceAnalysis app once and reuse it across requests."""
-    global _app
-    if _app is not None:
-        return _app
-
-    with _app_lock:
-        if _app is None:
-            from insightface.app import FaceAnalysis
-
-            app = FaceAnalysis(
-                name="buffalo_l",
-                providers=["CPUExecutionProvider"],
-            )
-            # ctx_id=-1 forces CPU. det_size is the detector input size.
-            app.prepare(ctx_id=-1, det_size=(640, 640))
-            _app = app
-    return _app
+from app.services.face_engine import get_face_app
 
 
 class NoFaceError(Exception):
@@ -59,7 +31,7 @@ def detect_gender(image_path: str) -> tuple[Gender, float]:
     if img is None:
         raise NoFaceError("تصویر قابل خواندن نیست")
 
-    app = _get_app()
+    app = get_face_app()
     faces = app.get(img)
     if not faces:
         raise NoFaceError("در عکس چهره‌ای پیدا نشد")

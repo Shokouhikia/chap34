@@ -4,14 +4,15 @@ Photo pipeline endpoints: upload -> detect-gender -> generate -> result.
 Gender detection is real: it runs the InsightFace `buffalo_l` model
 locally (see app.services.gender_detection). No external service is used.
 
-DEMO NOTE: `generate_photo` is still fake — it just copies the original
-file again and fakes a short delay. Real version: an image-generation
-pipeline that swaps the outfit and background based on `outfit_type` /
-`background_color`, most likely run as an async background job (Celery/RQ)
-with polling instead of the blocking call used here for the demo.
+`generate_photo` is also real for the alignment/crop/background part: it
+straightens the face, crops it to a 3:4 headshot, and replaces the
+background with the color the user picked (see
+app.services.photo_generation). `outfit_type` is NOT yet applied to the
+pixels — swapping actual garments needs a generative model, which is
+future work; the requested value is stored in `ai_meta` so the UI keeps
+working end-to-end.
 """
 import shutil
-import time
 import uuid
 from pathlib import Path
 
@@ -24,6 +25,8 @@ from app.core.database import get_session
 from app.models.photo import Gender, Photo, PhotoStatus
 from app.models.session import AnonymousSession
 from app.services.gender_detection import NoFaceError, detect_gender as run_gender_detection
+from app.services.photo_generation import NoFaceError as GenerationNoFaceError
+from app.services.photo_generation import generate_id_photo
 
 router = APIRouter(prefix="/api/photo", tags=["photo"])
 
@@ -114,9 +117,9 @@ class GenerateBody(BaseModel):
 def generate_photo(
     photo_id: uuid.UUID, body: GenerateBody, db: Session = Depends(get_session)
 ):
-    """DEMO: fakes the outfit/background generation synchronously. Real
-    version should kick off an async job and let the frontend poll
-    GET /api/photo/{id} for status instead of blocking this request."""
+    """Runs the real align + 3:4 crop + background-replace pipeline.
+    outfit_type is stored but not yet applied to the pixels (see module
+    docstring / task notes)."""
     photo = db.get(Photo, photo_id)
     if not photo:
         raise HTTPException(status_code=404, detail="عکس یافت نشد")
@@ -128,19 +131,33 @@ def generate_photo(
     db.add(photo)
     db.commit()
 
-    time.sleep(1.5)  # pretend this is where outfit/background generation happens
-
     original_path = UPLOAD_DIR / Path(photo.original_file_url).name
-    result_name = f"result_{uuid.uuid4().hex}{original_path.suffix}"
+    result_name = f"result_{uuid.uuid4().hex}.jpg"
     result_path = UPLOAD_DIR / result_name
-    shutil.copyfile(original_path, result_path)
+
+    try:
+        generate_id_photo(str(original_path), str(result_path), body.background_color)
+    except GenerationNoFaceError as exc:
+        photo.status = PhotoStatus.FAILED
+        db.add(photo)
+        db.commit()
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception:
+        photo.status = PhotoStatus.FAILED
+        db.add(photo)
+        db.commit()
+        raise HTTPException(status_code=500, detail="ساخت عکس نهایی با خطا مواجه شد")
 
     photo.result_file_url = f"/static/uploads/{result_name}"
     photo.status = PhotoStatus.COMPLETED
     photo.ai_meta = {
-        "outfit_applied": body.outfit_type,
+        "outfit_requested": body.outfit_type,
         "background_applied": body.background_color,
-        "note": "fake AI output for demo purposes",
+        "note": (
+            "face aligned + cropped 3:4 + background replaced via "
+            "InsightFace/rembg; outfit swap not yet implemented "
+            "(needs a generative model)"
+        ),
     }
     db.add(photo)
     db.commit()
