@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
@@ -7,7 +9,7 @@ import { genderDraft } from "@/lib/draft";
 
 const STEPS = ["اعمال پوشش انتخابی", "تنظیم پس‌زمینه", "آماده‌سازی خروجی نهایی"];
 
-export default function GeneratingPage() {
+function GeneratingPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const photoId = searchParams.get("photoId");
@@ -78,5 +80,13 @@ export default function GeneratingPage() {
       </ul>
       {error && <p className="mt-6 text-sm font-bold text-red-500">{error}</p>}
     </div>
+  );
+}
+
+export default function GeneratingPage() {
+  return (
+    <Suspense fallback={null}>
+      <GeneratingPageInner />
+    </Suspense>
   );
 }

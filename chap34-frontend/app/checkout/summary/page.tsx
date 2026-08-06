@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
@@ -10,7 +12,7 @@ const PAPER_LABEL: Record<string, string> = { glossy: "چاپ براق (گلاس
 
 const toman = (n: number) => n.toLocaleString("fa-IR");
 
-export default function SummaryPage() {
+function SummaryPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const photoId = searchParams.get("photoId") || "";
@@ -125,5 +127,13 @@ export default function SummaryPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function SummaryPage() {
+  return (
+    <Suspense fallback={null}>
+      <SummaryPageInner />
+    </Suspense>
   );
 }

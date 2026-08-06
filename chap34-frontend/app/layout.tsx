@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Vazirmatn } from "next/font/google";
 import "./globals.css";
+import Shell from "./_components/Shell";
 
 const vazir = Vazirmatn({
   subsets: ["arabic"],
@@ -21,12 +22,7 @@ export default function RootLayout({
   return (
     <html lang="fa" dir="rtl">
       <body className={`${vazir.variable} font-vazir`}>
-        <header className="sticky top-0 z-50 flex items-center justify-between border-b border-line bg-white/80 px-6 py-4 backdrop-blur">
-          <a href="/" className="flex items-center gap-2 text-lg font-extrabold text-navy">
-            Chap34
-          </a>
-        </header>
-        <main className="mx-auto max-w-3xl px-4 py-10">{children}</main>
+        <Shell>{children}</Shell>
       </body>
     </html>
   );

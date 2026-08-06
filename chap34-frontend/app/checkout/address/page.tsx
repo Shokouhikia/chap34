@@ -1,10 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { printDraft } from "@/lib/draft";
 
-export default function AddressPage() {
+function AddressPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const photoId = searchParams.get("photoId") || "";
@@ -156,5 +158,13 @@ export default function AddressPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function AddressPage() {
+  return (
+    <Suspense fallback={null}>
+      <AddressPageInner />
+    </Suspense>
   );
 }

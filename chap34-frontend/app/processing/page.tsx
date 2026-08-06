@@ -1,11 +1,13 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { genderDraft } from "@/lib/draft";
 
-export default function ProcessingPage() {
+function ProcessingPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const photoId = searchParams.get("photoId");
@@ -46,5 +48,13 @@ export default function ProcessingPage() {
       </p>
       {error && <p className="mt-6 text-sm font-bold text-red-500">{error}</p>}
     </div>
+  );
+}
+
+export default function ProcessingPage() {
+  return (
+    <Suspense fallback={null}>
+      <ProcessingPageInner />
+    </Suspense>
   );
 }

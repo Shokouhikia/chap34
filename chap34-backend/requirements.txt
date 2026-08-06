@@ -5,8 +5,24 @@ alembic==1.13.2
 psycopg2-binary==2.9.12
 python-dotenv==1.0.1
 pydantic-settings==2.5.2
-passlib[bcrypt]==1.7.4
+# bcrypt directly (not passlib) for the atelier/operator password hashing:
+# passlib 1.7.4 is unmaintained and crashes against bcrypt >= 4.1, which is
+# what's installed here, so we call the bcrypt API ourselves in security.py.
+bcrypt==5.0.0
 python-multipart==0.0.9
+
+# Atelier/operations panels: signed JWT sessions, and internal QR codes
+# stamped onto print sheets.
+PyJWT==2.9.0
+qrcode==7.4.2
+# DEMO NOTE: the spec suggested reportlab for PDF, but sheets/labels/lists are
+# all rendered as Pillow images (which we already need for the photo layout)
+# and exported to PDF via Pillow's own multi-page save. One text/RTL path,
+# one rendering engine - so reportlab is intentionally not used.
+# Persian text on print sheets/labels needs glyph joining (reshaper) + RTL
+# reordering (bidi) before it's drawn with Pillow, which does neither itself.
+arabic-reshaper==3.0.0
+python-bidi==0.4.2
 
 # Local AI gender detection (InsightFace buffalo_l on CPU via ONNX Runtime).
 opencv-python-headless==4.10.0.84

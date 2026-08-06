@@ -1,10 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { api } from "@/lib/api";
 
-export default function CapturePage() {
+function CapturePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mode = searchParams.get("mode") === "camera" ? "camera" : "gallery";
@@ -85,5 +87,13 @@ export default function CapturePage() {
         </p>
       )}
     </div>
+  );
+}
+
+export default function CapturePage() {
+  return (
+    <Suspense fallback={null}>
+      <CapturePageInner />
+    </Suspense>
   );
 }

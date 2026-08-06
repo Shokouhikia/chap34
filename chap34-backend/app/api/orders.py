@@ -24,6 +24,7 @@ from app.models.order import Order, OrderStatus, OrderStatusHistory, PaperType, 
 from app.models.payment import Payment, PaymentGateway, PaymentStatus
 from app.models.print_job import PrintJob
 from app.models.user import User
+from app.services.codes import next_order_code
 
 router = APIRouter(prefix="/api", tags=["orders"])
 
@@ -97,6 +98,8 @@ def create_order(
         paper_type=body.paper_type,
         quantity=body.quantity,
         total_price=amount,
+        # Searchable code used across the atelier/ops panels (e.g. ORD-000123).
+        order_code=next_order_code(db),
     )
     db.add(order)
     db.commit()

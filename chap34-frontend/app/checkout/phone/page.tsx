@@ -1,10 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/api";
 
-export default function PhonePage() {
+function PhonePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const photoId = searchParams.get("photoId") || "";
@@ -59,5 +61,13 @@ export default function PhonePage() {
         {loading ? "در حال ارسال..." : "دریافت کد تأیید"}
       </button>
     </div>
+  );
+}
+
+export default function PhonePage() {
+  return (
+    <Suspense fallback={null}>
+      <PhonePageInner />
+    </Suspense>
   );
 }

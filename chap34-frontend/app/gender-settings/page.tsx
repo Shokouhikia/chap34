@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, Gender } from "@/lib/api";
@@ -33,7 +35,7 @@ type Photo = {
   detected_gender?: Gender | null;
 };
 
-export default function GenderSettingsPage() {
+function GenderSettingsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const photoId = searchParams.get("photoId") || "";
@@ -134,5 +136,13 @@ export default function GenderSettingsPage() {
         ساخت عکس نهایی
       </button>
     </div>
+  );
+}
+
+export default function GenderSettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <GenderSettingsPageInner />
+    </Suspense>
   );
 }

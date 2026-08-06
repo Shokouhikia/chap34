@@ -1,10 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState, useEffect } from "react";
 import { api } from "@/lib/api";
 
-export default function OtpPage() {
+function OtpPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const photoId = searchParams.get("photoId") || "";
@@ -84,5 +86,13 @@ export default function OtpPage() {
         ارسال مجدد کد
       </button>
     </div>
+  );
+}
+
+export default function OtpPage() {
+  return (
+    <Suspense fallback={null}>
+      <OtpPageInner />
+    </Suspense>
   );
 }

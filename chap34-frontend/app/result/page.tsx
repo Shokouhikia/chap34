@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -11,7 +13,7 @@ type Photo = {
   status: string;
 };
 
-export default function ResultPage() {
+function ResultPageInner() {
   const searchParams = useSearchParams();
   const photoId = searchParams.get("photoId");
   const [photo, setPhoto] = useState<Photo | null>(null);
@@ -85,5 +87,13 @@ export default function ResultPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function ResultPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResultPageInner />
+    </Suspense>
   );
 }

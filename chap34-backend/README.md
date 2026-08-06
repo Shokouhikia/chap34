@@ -76,3 +76,52 @@ tracking       → GET  /api/orders/{id}/status
 قیمت سفارش **همیشه سمت سرور** از روی ماتریس `app/core/pricing.py`
 محاسبه می‌شه، نه از روی چیزی که فرانت می‌فرسته. فرانت فقط برای پیش‌نمایش
 قیمت زنده از `GET /api/print/pricing` استفاده می‌کنه.
+
+## پنل آتلیه و پنل عملیاتی چاپخانه (مدیریت سفارش، چاپ و ارسال)
+
+این فاز دو پنل داخلی اضافه می‌کنه که چرخه‌ی سفارش رو از لحظه‌ی پرداخت تا
+تحویل به مشتری مدیریت می‌کنن. برخلاف مسیر مشتری، احراز هویت این‌جا **واقعیه**
+(JWT امضاشده + bcrypt) — `app/core/security.py`.
+
+- فیلد `Order.status` (مسیر مشتری) دست‌نخورده مونده. یک فیلد جدید
+  `Order.fulfillment_status` چرخه‌ی ۱۳ مرحله‌ای عملیاتی رو نگه می‌داره؛
+  نگاشت ۱۳↔۵ مرحله در `app/services/status_mapping.py` (تابع خالص، تنها
+  منبع این نگاشت).
+- تولید شیت چاپ / برچسب پستی / لیست تحویل به پست همه سمت سرور با Pillow
+  انجام می‌شه (`app/services/sheet_layout.py`, `labels.py`, `rendering.py`)،
+  QR داخلی با پکیج `qrcode`. خروجی PNG یا PDF چندصفحه‌ای (بدون reportlab —
+  یک مسیر رندر واحد برای متن فارسی با reshaper + bidi).
+
+### راه‌اندازی این فاز
+
+```powershell
+pip install -r requirements.txt          # PyJWT, qrcode, bcrypt, arabic-reshaper, python-bidi
+alembic upgrade head                      # migration جدید b381e25f90d3
+python -m scripts.seed_demo               # حساب‌های دمو + چند سفارش نمونه
+```
+
+migration جدید داده‌ی موجود رو نمی‌شکنه: `order_code` برای ردیف‌های قدیمی
+backfill می‌شه و `fulfillment_status` با دیفالت `registered` پر می‌شه.
+
+### حساب‌های دمو (بعد از seed)
+
+| نقش | نام کاربری | رمز |
+|---|---|---|
+| آتلیه | `atelier1` | `demo1234` |
+| اپراتور | `operator1` | `demo1234` |
+| مدیر (CRUD آتلیه) | `admin` | `demo1234` |
+
+پنل‌ها در فرانت: `/atelier/login` و `/ops/login`.
+
+### DEMO NOTE های این فاز (تصمیم‌های مستندشده)
+
+- **bcrypt مستقیم به‌جای passlib**: passlib 1.7.4 با bcrypt ≥۴.۱ نصب‌شده
+  کرش می‌کنه، پس در `security.py` مستقیم از API خود `bcrypt` استفاده شده.
+- **رد کنترل کیفیت** سفارش رو به وضعیت `qc_rejected` می‌بره (نه مستقیم
+  `queued`)؛ این سفارش‌ها دوباره از `POST /api/ops/batches` قابل بچ‌شدن‌اند.
+- **اتمام چاپِ بچ** سفارش‌ها رو مستقیم به `qc_pending` می‌بره تا صف کنترل
+  کیفیت بدون یک کلیک اضافه پر بشه.
+- **تخصیص آتلیه** دستی است: `PATCH /api/ops/orders/{id}/assign-atelier`
+  (اتوماسیون round-robin خارج از این فاز).
+- **نقش اپراتور** فعلاً enforce نمی‌شه جز برای اندپوینت‌های ادمین
+  (`/api/admin/ateliers`).

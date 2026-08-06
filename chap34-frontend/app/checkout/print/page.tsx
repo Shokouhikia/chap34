@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, PaperType, PrintSize } from "@/lib/api";
@@ -19,7 +21,7 @@ const QUANTITIES = [6, 12, 24];
 
 const toman = (n: number) => n.toLocaleString("fa-IR");
 
-export default function PrintOptionsPage() {
+function PrintOptionsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const photoId = searchParams.get("photoId") || "";
@@ -123,5 +125,13 @@ export default function PrintOptionsPage() {
         ادامه
       </button>
     </div>
+  );
+}
+
+export default function PrintOptionsPage() {
+  return (
+    <Suspense fallback={null}>
+      <PrintOptionsPageInner />
+    </Suspense>
   );
 }
