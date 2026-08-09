@@ -51,8 +51,14 @@ App روی ریپو) — بدون اون مرحله، Netlify سعی می‌کن
 این رو اجرا کن (به `netlify.toml` نگاه می‌کنه، `base` رو خودش می‌فهمه):
 
 ```bash
-npx netlify-cli deploy --build --prod --site 37437846-05a3-4dac-a5bb-a91f9e57c172 --auth <NETLIFY_AUTH_TOKEN>
+NEXT_PUBLIC_API_URL=https://chap34-backend.onrender.com \
+  npx netlify-cli deploy --build --prod --site 37437846-05a3-4dac-a5bb-a91f9e57c172 --auth <NETLIFY_AUTH_TOKEN>
 ```
+
+⚠️ حتماً `NEXT_PUBLIC_API_URL` رو صریح پاس بده — دیپلوی محلی با `--build`
+برخلاف انتظار، env varهای ست‌شده روی سایت (توی داشبورد/API) رو خودکار
+موقع build نمی‌کشه؛ بدون این مقدار build با پیش‌فرض `localhost:8000`
+ساخته می‌شه و روی سایت لایو خطای «اتصال به سرور برقرار نشد» می‌ده.
 
 **برای فعال‌کردن دیپلوی خودکار روی هر push** (اختیاری، یه‌بار انجام
 می‌شه): برو به [app.netlify.com/projects/chap34-app](https://app.netlify.com/projects/chap34-app)
