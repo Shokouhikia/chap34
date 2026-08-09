@@ -2,9 +2,13 @@
 Shared InsightFace FaceAnalysis singleton (buffalo_l model pack).
 
 Both gender detection and the photo-generation pipeline (alignment +
-cropping) need face detection + landmarks, so they share this one lazily
-loaded instance instead of each loading buffalo_l separately (which would
-double memory usage and load time).
+cropping, via face.kps) need only the detector's own 5-point keypoints
+plus genderage — neither uses face recognition or the dense landmark
+models. buffalo_l bundles 5 ONNX models totaling ~340MB on disk
+(recognition alone is ~175MB, the 3D landmark model ~145MB), so loading
+the full pack was the main reason the process OOM-crashed on memory-
+constrained hosts (e.g. free-tier Render's 512MB). `allowed_modules`
+restricts loading to the ~18MB detection+genderage actually used.
 
 Runs on CPU by default (CPUExecutionProvider) so it works without a GPU.
 """
@@ -27,6 +31,7 @@ def get_face_app():
             app = FaceAnalysis(
                 name="buffalo_l",
                 providers=["CPUExecutionProvider"],
+                allowed_modules=["detection", "genderage"],
             )
             # ctx_id=-1 forces CPU. det_size is the detector input size.
             app.prepare(ctx_id=-1, det_size=(640, 640))
