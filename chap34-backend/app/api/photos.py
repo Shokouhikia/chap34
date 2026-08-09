@@ -1,8 +1,10 @@
 """
 Photo pipeline endpoints: upload -> detect-gender -> generate -> result.
 
-Gender detection is real: it runs the InsightFace `buffalo_l` model
-locally (see app.services.gender_detection). No external service is used.
+Gender detection currently defaults to male instead of running the real
+InsightFace model (see the TEMPORARY note on the detect-gender route) —
+it OOM-crashes on Render's free tier. app.services.gender_detection still
+has the real implementation for when hosting with more memory is used.
 
 `generate_photo` is also real for the alignment/crop/background part: it
 straightens the face, crops it to a 3:4 headshot, and replaces the
@@ -24,7 +26,6 @@ from app.api.deps import get_or_create_anonymous_session
 from app.core.database import get_session
 from app.models.photo import Gender, Photo, PhotoStatus
 from app.models.session import AnonymousSession
-from app.services.gender_detection import NoFaceError, detect_gender as run_gender_detection
 from app.services.photo_generation import NoFaceError as GenerationNoFaceError
 from app.services.photo_generation import generate_id_photo
 
@@ -77,20 +78,11 @@ def detect_gender(photo_id: uuid.UUID, db: Session = Depends(get_session)):
     db.add(photo)
     db.commit()
 
-    # Run the real InsightFace gender model on the uploaded file.
-    image_path = UPLOAD_DIR / Path(photo.original_file_url).name
-    try:
-        detected, confidence = run_gender_detection(str(image_path))
-    except NoFaceError as exc:
-        photo.status = PhotoStatus.FAILED
-        db.add(photo)
-        db.commit()
-        raise HTTPException(status_code=422, detail=str(exc))
-    except Exception:
-        photo.status = PhotoStatus.FAILED
-        db.add(photo)
-        db.commit()
-        raise HTTPException(status_code=500, detail="تشخیص جنسیت با خطا مواجه شد")
+    # TEMPORARY: real InsightFace detection (run_gender_detection) OOM-crashes
+    # on Render's free 512MB tier even after trimming it to the detection+
+    # genderage models only (see face_engine.py, DEPLOY.md). Defaulting to
+    # male until the hosting/memory situation is resolved.
+    detected, confidence = Gender.MALE, 1.0
 
     photo.detected_gender = detected
     photo.selected_gender = detected  # gender is decided automatically now
