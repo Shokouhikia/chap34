@@ -9,8 +9,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # NEXT_PUBLIC_* vars are inlined into the client bundle at build time, so this
-# must be passed as a build arg (set it as a Variable on the Railway service;
-# Railway forwards service variables as build args automatically).
+# must be passed as a build arg on whatever host runs this Dockerfile.
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 

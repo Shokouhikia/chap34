@@ -72,3 +72,4 @@ Thumbs.db
 
 # Deploy tokens (local only, never commit)
 .deploy_secrets
+.netlify/

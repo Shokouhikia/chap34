@@ -1,75 +1,81 @@
-# دیپلوی رایگان (فعلاً): Vercel + Neon + Hugging Face Spaces
+# دیپلوی رایگان: Netlify + Neon + Render
 
-سه بخش پروژه روی سه سرویس رایگان جدا می‌رن. هر سه فقط از طریق داشبورد
-خودشون (با لاگین گیت‌هاب) قابل‌راه‌اندازی‌ان — این مراحل رو باید خودتون
-انجام بدید چون نیاز به ساخت اکانت داره.
+پروژه الان روی سه سرویس رایگان مستقره:
 
-## ۱. دیتابیس — Neon (Postgres رایگان)
+- **دیتابیس**: [Neon](https://neon.tech) (Postgres)
+- **بک‌اند**: [Render](https://render.com) (Docker Web Service)
+- **فرانت‌اند**: [Netlify](https://netlify.com)
 
-1. برو [neon.tech](https://neon.tech) → با گیت‌هاب لاگین کن → **New Project**
-2. یه نام بذار (مثلاً `chap34`) و ریجن رو انتخاب کن
-3. از تب **Connection Details**، رشته‌ی اتصال رو کپی کن — چیزی شبیه:
-   ```
-   postgresql://user:pass@ep-xxxx.region.aws.neon.tech/chap34?sslmode=require
-   ```
-4. پیشوندش رو به `postgresql+psycopg2://` عوض کن (کد از psycopg2 استفاده
-   می‌کنه) — این مقدار نهایی می‌شه `DATABASE_URL` که تو مرحله‌ی ۲ لازمش داری.
+(Vercel و Hugging Face Spaces به‌عنوان گزینه‌ی اول امتحان شدن ولی کنار
+گذاشته شدن: Vercel لاگینش شماره تلفن می‌خواست، و Docker Space رایگان
+Hugging Face این‌روزها نیاز به اشتراک PRO داره.)
 
-## ۲. بک‌اند — Hugging Face Spaces (Docker، رایگان با ۲ vCPU / ۱۶GB RAM)
+## وضعیت فعلی
 
-### ساخت Space
-1. برو [huggingface.co/new-space](https://huggingface.co/new-space) → لاگین با گیت‌هاب
-2. اسم Space رو بذار (مثلاً `chap34-backend`)، **SDK** رو `Docker` انتخاب کن، **Visibility** هرچی خواستی
-3. بعد از ساخته‌شدن، بدون این‌که کاری کنی، برو تو تب **Settings** همون Space → بخش **Variables and secrets** → این‌ها رو اضافه کن:
-   - `DATABASE_URL` = همون مقداری که از Neon گرفتی (secret)
-   - `SECRET_KEY` = یه رشته‌ی رندوم امن (secret)
-   - `ADMIN_USER` / `ADMIN_PASS` = یوزر/پس ادمین اولیه (secret)
-   - `ENVIRONMENT` = `production`
+| بخش | آدرس | نکته |
+|---|---|---|
+| دیتابیس | Neon project `chap34` (`damp-frost-28180012`) | — |
+| بک‌اند | `https://chap34-backend.onrender.com` | با هر push به `main` که `chap34-backend/` رو عوض کنه خودکار ری‌دیپلوی می‌شه |
+| فرانت‌اند | `https://chap34-app.netlify.app` | **بدون** دیپلوی خودکار از گیت‌هاب — دستورالعمل زیر رو ببین |
 
-### وصل‌کردن به گیت‌هاب برای دیپلوی خودکار
-فایل `.github/workflows/deploy-hf-space.yml` از قبل تو ریپو آماده‌ست و با
-هر push به `main` که `chap34-backend/` رو عوض کنه، خودکار محتوای اون
-پوشه رو به Space پوش می‌کنه (Space با گرفتن پوش، ایمیج رو خودش rebuild
-می‌کنه). فقط باید یه بار این‌ها رو تو تنظیمات ریپوی گیت‌هاب ست کنی:
+## ۱. دیتابیس — Neon
 
-1. برو [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) → **New token** → دسترسی **Write** بده → کپی کن
-2. تو ریپوی گیت‌هاب: **Settings → Secrets and variables → Actions**
-   - تب **Secrets** → New repository secret:
-     - `HF_TOKEN` = همون توکنی که ساختی
-   - تب **Variables** → New repository variable:
-     - `HF_USERNAME` = یوزرنیم حساب Hugging Face‌ت
-     - `HF_SPACE_NAME` = اسمی که برای Space گذاشتی (مثلاً `chap34-backend`)
-3. یه push خالی به `main` بزن (یا از تب Actions روی این workflow دستی **Run workflow** بزن) — بعد از چند دقیقه Space باید بیلد و آپ بشه.
+از داشبورد [console.neon.tech](https://console.neon.tech) یا API (با یه API
+key از **Account Settings → API Keys**) قابل مدیریته. `DATABASE_URL` باید
+پیشوندش `postgresql+psycopg2://` باشه (کد از psycopg2 استفاده می‌کنه).
 
-آدرس نهایی بک‌اند: `https://<HF_USERNAME>-<HF_SPACE_NAME>.hf.space`
+## ۲. بک‌اند — Render (Docker، رایگان)
 
-⚠️ **محدودیت‌های این تیر رایگان**: بعد از مدتی بی‌کاری، Space می‌خوابه (کولد
-استارت چند ده‌ثانیه‌ای موقع اولین درخواست بعدی)، و دیسکش ephemeral هست —
-یعنی عکس‌های آپلودشده (`app/static/uploads`) با هر sleep/rebuild پاک
-می‌شن. برای دمو/تست مشکلی نیست؛ برای واقعی‌شدن باید storage رو به یه
-Object Storage (S3 و مشابه) وصل کنیم.
+سرویس از نوع **Web Service** با `rootDir: chap34-backend` و همون
+`Dockerfile` موجود ساخته شده. چون ریپو **public**ه، Render مستقیم از روی
+URL ریپو کلون می‌کنه — نیازی به نصب جداگونه‌ی اپ گیت‌هاب نیست.
 
-## ۳. فرانت‌اند — Vercel (رایگان)
+**Environment variables** (از داشبورد Render → سرویس → Environment):
+`DATABASE_URL`, `SECRET_KEY`, `ADMIN_USER`, `ADMIN_PASS`,
+`ENVIRONMENT=production`
 
-1. برو [vercel.com/new](https://vercel.com/new) → با گیت‌هاب لاگین کن → ریپوی `chap34` رو **Import** کن
-2. تو صفحه‌ی تنظیمات پروژه:
-   - **Root Directory** = `chap34-frontend`
-   - Framework Preset خودش `Next.js` رو تشخیص می‌ده
-3. تو بخش **Environment Variables**:
-   - `NEXT_PUBLIC_API_URL` = آدرس بک‌اند از مرحله‌ی ۲ (`https://<HF_USERNAME>-<HF_SPACE_NAME>.hf.space`)
-4. **Deploy** بزن. با هر push بعدی به `main` که `chap34-frontend/` عوض بشه، Vercel خودکار دوباره دیپلوی می‌کنه.
+⚠️ **محدودیت تیر رایگان Render**: بعد از ۱۵ دقیقه بی‌کاری سرویس می‌خوابه
+(کولد استارت ~۳۰-۶۰ ثانیه‌ای موقع اولین درخواست بعدی). دیسک هم ephemeral
+هست، یعنی `app/static/uploads` با هر ری‌دیپلوی پاک می‌شه — برای دمو مشکلی
+نیست، برای واقعی‌شدن باید storage به یه Object Storage وصل بشه.
+
+## ۳. فرانت‌اند — Netlify (رایگان)
+
+سایت (`chap34-app`) از طریق API ساخته شد، اما وصل‌کردنش به گیت‌هاب برای
+دیپلوی خودکار (git-linked continuous deployment) به یه مرحله‌ی مرورگری
+نیاز داره که فقط خود کاربر می‌تونه انجامش بده (نصب/تأیید Netlify GitHub
+App روی ریپو) — بدون اون مرحله، Netlify سعی می‌کنه با SSH کلون کنه و
+خطای `Host key verification failed` می‌ده.
+
+**راه فعلی (دیپلوی دستی)**: هر وقت فرانت‌اند تغییر کرد، از ریشه‌ی ریپو
+این رو اجرا کن (به `netlify.toml` نگاه می‌کنه، `base` رو خودش می‌فهمه):
+
+```bash
+npx netlify-cli deploy --build --prod --site 37437846-05a3-4dac-a5bb-a91f9e57c172 --auth <NETLIFY_AUTH_TOKEN>
+```
+
+**برای فعال‌کردن دیپلوی خودکار روی هر push** (اختیاری، یه‌بار انجام
+می‌شه): برو به [app.netlify.com/projects/chap34-app](https://app.netlify.com/projects/chap34-app)
+→ **Site configuration → Build & deploy → Link repository** → ریپوی
+`chap34` رو انتخاب کن و دسترسی گیت‌هاب رو تأیید کن. بعدش هر push به
+`main` که `chap34-frontend/` یا `netlify.toml` رو عوض کنه خودکار
+دیپلوی می‌شه و دیگه نیازی به دستور دستی بالا نیست.
+
+**Environment variables** (از داشبورد یا API): `NEXT_PUBLIC_API_URL` باید
+برابر آدرس بک‌اند باشه (`https://chap34-backend.onrender.com`) — چون
+`NEXT_PUBLIC_*` موقع build توی باندل inline می‌شه، هر بار که این مقدار
+عوض بشه باید یه build جدید بگیره.
+
+نکته‌ی فنی: `next.config.js` مقدار `output: "standalone"` رو فقط وقتی
+`NETLIFY` ست نشده فعال می‌کنه (خود Netlify موقع build خودکار
+`NETLIFY=true` رو ست می‌کنه) — چون این خروجی با Netlify Next Runtime
+ناسازگاره ولی برای Dockerfile پرتابل (پایین رو ببین) لازمه.
 
 ---
 
-## ترتیب پیشنهادی انجام کار
-
-1. اول Neon (چون `DATABASE_URL` لازمش داری برای مرحله‌ی بعد)
-2. بعد HF Space (چون آدرسش رو برای `NEXT_PUBLIC_API_URL` لازم داری)
-3. آخر Vercel
-
 ## مهاجرت بعدی به سرور اصلی
 
-هر سه مرحله فقط دو چیز عوض می‌کنن: مقدار `DATABASE_URL` و
-`NEXT_PUBLIC_API_URL`. خود Dockerfileها (`chap34-backend/Dockerfile`,
+`Dockerfile`های هر دو بخش (`chap34-backend/Dockerfile`,
 `chap34-frontend/Dockerfile`) کاملاً پرتابل‌ان و بدون تغییر روی هر هاست
-دیگه‌ای (VPS خودتون، سرور اصلی، هر ابر دیگه) هم اجرا می‌شن.
+دیگه‌ای (VPS خودتون، سرور اصلی، هر ابر دیگه) هم اجرا می‌شن — فقط
+`DATABASE_URL` و `NEXT_PUBLIC_API_URL` عوض می‌شن.
