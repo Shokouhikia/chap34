@@ -1,0 +1,14 @@
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+.git/
+.gitignore
+app/static/uploads/
+check_columns.py
+check_orders.py
+*.md
