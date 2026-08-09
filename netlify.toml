@@ -1,0 +1,3 @@
+[build]
+  base = "chap34-frontend"
+  command = "npm run build"

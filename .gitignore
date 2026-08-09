@@ -69,3 +69,6 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+
+# Deploy tokens (local only, never commit)
+.deploy_secrets
