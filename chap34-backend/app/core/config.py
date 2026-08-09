@@ -28,5 +28,8 @@ class Settings(BaseSettings):
     # Anonymous session behavior (before phone verification)
     anonymous_session_ttl_hours: int = 24
 
+    admin_user: str = "admin"
+    admin_pass: str = "admin123"
+
 
 settings = Settings()

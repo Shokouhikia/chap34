@@ -1,0 +1,33 @@
+<svg viewBox="0 0 400 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgCasual" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#DCE3EC"/>
+      <stop offset="1" stop-color="#C4CEDB"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="500" fill="url(#bgCasual)"/>
+  <!-- window hint -->
+  <rect x="30" y="40" width="110" height="150" rx="4" fill="#EDEFF4" opacity="0.5"/>
+  <line x1="85" y1="40" x2="85" y2="190" stroke="#B9C2D0" stroke-width="3"/>
+  <!-- shoulders / casual t-shirt -->
+  <path d="M90 500 C90 380 140 330 200 330 C260 330 310 380 310 500 Z" fill="#5B6B7A"/>
+  <path d="M150 345 L170 400 L200 375 L230 400 L250 345" fill="none" stroke="#48555F" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- neck -->
+  <rect x="178" y="300" width="44" height="50" rx="14" fill="#E3B08C"/>
+  <!-- head -->
+  <ellipse cx="200" cy="230" rx="78" ry="88" fill="#EBB98F"/>
+  <!-- hair, slightly messy -->
+  <path d="M124 220 C118 150 150 95 200 95 C252 95 284 150 276 222 C270 190 250 165 200 165 C150 165 130 190 124 220 Z" fill="#2E2621"/>
+  <path d="M130 210 C126 230 128 245 136 258" stroke="#2E2621" stroke-width="10" stroke-linecap="round" fill="none"/>
+  <path d="M270 210 C274 230 272 245 264 258" stroke="#2E2621" stroke-width="10" stroke-linecap="round" fill="none"/>
+  <!-- eyes -->
+  <ellipse cx="170" cy="232" rx="7" ry="9" fill="#2E2621"/>
+  <ellipse cx="230" cy="232" rx="7" ry="9" fill="#2E2621"/>
+  <!-- eyebrows -->
+  <path d="M156 214 Q170 206 184 214" stroke="#2E2621" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M216 214 Q230 206 244 214" stroke="#2E2621" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <!-- nose -->
+  <path d="M198 240 Q192 260 200 266 Q206 266 202 260" stroke="#C99568" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- mouth: relaxed casual smile -->
+  <path d="M172 282 Q200 300 228 282" stroke="#8A4B3B" stroke-width="6" fill="none" stroke-linecap="round"/>
+</svg>

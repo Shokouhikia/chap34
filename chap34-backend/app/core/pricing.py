@@ -1,66 +1,46 @@
-"""
-Server-side pricing matrix for print orders.
-
-DEMO NOTE: the frontend demo currently only varies price by quantity
-(6 -> 400,000 / 12 -> 600,000 / 24 -> 800,000 Tomans) and ignores size and
-paper type. Here we define a real size x paper_type x quantity matrix so
-the backend is the single source of truth for price - the frontend total
-is only ever a preview, never trusted. Adjust these numbers freely; they
-are placeholders.
-"""
 from app.models.order import PaperType, PrintSize
-
-# Base price per quantity tier, for the default size (3x4) and paper (glossy).
-BASE_PRICE_BY_QUANTITY = {
-    6: 400_000,
-    12: 600_000,
-    24: 800_000,
-}
-
-# Multiplier applied on top of the base price above.
-SIZE_MULTIPLIER = {
-    PrintSize.SIZE_3X4: 1.0,
-    PrintSize.SIZE_6X8: 1.25,  # bigger prints cost more
-}
-
-PAPER_MULTIPLIER = {
-    PaperType.GLOSSY: 1.0,
-    PaperType.MATTE: 0.95,
-}
-
-SHIPPING_COST = 45_000
+from app.services import settings_service
 
 
-def get_price(size: PrintSize, paper_type: PaperType, quantity: int) -> int:
-    """
-    Returns the total price in Tomans for a given combination, rounded to
-    the nearest 1,000 Tomans. Raises ValueError for a quantity that isn't
-    one of the supported tiers - the frontend only ever offers 6/12/24,
-    so anything else means a client is sending something it shouldn't.
-    """
-    if quantity not in BASE_PRICE_BY_QUANTITY:
+def get_price(db_session, size: PrintSize, paper_type: PaperType, quantity: int) -> int:
+    base_key = {
+        6: "price_base_qty_6",
+        12: "price_base_qty_12",
+        24: "price_base_qty_24",
+    }.get(quantity)
+
+    if not base_key:
         raise ValueError(f"تعداد {quantity} پشتیبانی نمی‌شود")
 
-    base = BASE_PRICE_BY_QUANTITY[quantity]
-    total = base * SIZE_MULTIPLIER[size] * PAPER_MULTIPLIER[paper_type]
+    base = int(settings_service.get_value(db_session, base_key))
+    size_mult = float(settings_service.get_value(db_session, {
+        PrintSize.SIZE_3X4: "size_multiplier_3x4",
+        PrintSize.SIZE_6X8: "size_multiplier_6x8",
+    }[size]))
+
+    paper_mult = float(settings_service.get_value(db_session, {
+        PaperType.GLOSSY: "paper_multiplier_glossy",
+        PaperType.MATTE: "paper_multiplier_matte",
+    }[paper_type]))
+
+    total = base * size_mult * paper_mult
     return round(total / 1000) * 1000
 
 
-def get_shipping_cost() -> int:
-    return SHIPPING_COST
+def get_shipping_cost(db_session) -> int:
+    return int(settings_service.get_value(db_session, "shipping_cost"))
 
 
-def get_pricing_matrix() -> dict:
-    """Full matrix, used by GET /api/print/pricing so the frontend can
-    render live prices for every combination without hardcoding them."""
+def get_pricing_matrix(db_session) -> dict:
+    from app.models.order import PrintSize, PaperType
     matrix = []
-    for quantity in BASE_PRICE_BY_QUANTITY:
+    for quantity in [6, 12, 24]:
         for size in PrintSize:
             for paper in PaperType:
                 matrix.append({
                     "quantity": quantity,
                     "size": size.value,
                     "paper_type": paper.value,
-                    "price": get_price(size, paper, quantity),
+                    "price": get_price(db_session, size, paper, quantity),
                 })
     return {"currency": "toman", "combinations": matrix}

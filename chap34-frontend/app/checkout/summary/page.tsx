@@ -23,6 +23,9 @@ function SummaryPageInner() {
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [discountCode, setDiscountCode] = useState("");
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [discountPercent, setDiscountPercent] = useState<number | null>(null);
   const draft = printDraft.get();
 
   useEffect(() => {
@@ -50,11 +53,43 @@ function SummaryPageInner() {
          setOrderId(data.order_id);
          setAmount(data.amount_due);
          setShippingCost(data.shipping_cost);
+         setDiscountAmount(data.discount_amount || 0);
+         setDiscountPercent(data.discount_percent || null);
+         if (data.discount_code) setDiscountCode(data.discount_code);
        })
-      .catch((err) => setError(err instanceof Error ? err.message : "خطای ناشناخته"))
-      .finally(() => setLoading(false));
+       .catch((err) => setError(err instanceof Error ? err.message : "خطای ناشناخته"))
+       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function applyDiscount() {
+    if (!draft || !discountCode.trim()) return;
+    setError(null);
+    try {
+      const data = await api.createOrder({
+        photo_id: photoId,
+        size: draft.size,
+        quantity: draft.quantity,
+        paper_type: draft.paperType,
+        address: {
+          full_name: draft.fullName!,
+          province: draft.province!,
+          city: draft.city!,
+          full_address: draft.fullAddress!,
+          postal_code: draft.postalCode!,
+          phone: draft.phone!,
+        },
+        discount_code: discountCode.trim(),
+      });
+      setOrderId(data.order_id);
+      setAmount(data.amount_due);
+      setDiscountAmount(data.discount_amount || 0);
+      setDiscountPercent(data.discount_percent || null);
+      if (data.discount_code) setDiscountCode(data.discount_code);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "خطا در اعمال کد تخفیف");
+    }
+  }
 
   async function pay() {
     if (!orderId) return;
@@ -101,6 +136,12 @@ function SummaryPageInner() {
                <span>{toman(shippingCost)} تومان</span>
              </div>
            )}
+           {discountAmount > 0 && (
+             <div className="price-row text-green-600">
+               <span>تخفیف {discountPercent ? `(${discountPercent}٪)` : ""}</span>
+               <span>-{toman(discountAmount)} تومان</span>
+             </div>
+           )}
            <div className="price-row total">
              <span>مبلغ قابل پرداخت</span>
              <span>{amount !== null ? `${toman(amount)} تومان` : "..."}</span>
@@ -111,6 +152,22 @@ function SummaryPageInner() {
       <div className="card my-4 flex items-center justify-between border-purple bg-purple-tint">
         <span className="text-sm font-bold text-navy">درگاه بانک ملی (دمو)</span>
         <span className="h-4 w-4 rounded-full border-2 border-purple bg-purple" />
+      </div>
+
+      <div className="mb-4">
+        <label className="mb-1 block text-sm font-bold text-navy">کد تخفیف (اختیاری)</label>
+        <div className="flex gap-2">
+          <input
+            value={discountCode}
+            onChange={(e) => setDiscountCode(e.target.value)}
+            placeholder="مثلاً WELCOME10"
+            className="field-input flex-1"
+            dir="ltr"
+          />
+          <button onClick={applyDiscount} className="btn-outline whitespace-nowrap">
+            اعمال کد
+          </button>
+        </div>
       </div>
 
       {error && <p className="mb-3 text-sm font-bold text-red-500">{error}</p>}

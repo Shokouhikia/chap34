@@ -75,15 +75,13 @@ function ResultPageInner() {
         </div>
       )}
 
-      <div className="card mt-6 bg-navy text-center text-white">
-        <p className="mb-3 text-sm font-bold text-purple-tint">
-          نسخه چاپی می‌خواهید؟
-        </p>
+      <div className="mt-6 text-center">
+        <p className="mb-3 text-sm font-bold text-navy">سفارش چاپ فیزیکی</p>
         <Link
           href={`/checkout/phone?photoId=${photoId}`}
-          className="inline-block rounded-full bg-white px-6 py-3 text-sm font-bold text-navy"
+          className="btn-primary w-full py-4 text-base shadow-xl shadow-purple/40"
         >
-          سفارش چاپ و ارسال به آدرس من
+          🖨️ سفارش چاپ و ارسال به آدرس من
         </Link>
       </div>
     </div>

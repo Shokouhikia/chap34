@@ -18,7 +18,7 @@ class Shipment(SQLModel, table=True):
     # Human-readable code, e.g. SHIP-0001.
     code: str = Field(unique=True, index=True, max_length=20)
 
-    operator_id: uuid.UUID = Field(foreign_key="operators.id", index=True)
+    staff_id: uuid.UUID = Field(foreign_key="staff_accounts.id", index=True)
 
     order_count: int = Field(default=0)
 

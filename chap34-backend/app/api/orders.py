@@ -20,6 +20,7 @@ from app.api.deps import get_current_user
 from app.core.database import get_session
 from app.core.pricing import get_price, get_shipping_cost
 from app.models.address import Address
+from app.models.discount import DiscountCode
 from app.models.order import Order, OrderStatus, OrderStatusHistory, PaperType, PrintSize
 from app.models.payment import Payment, PaymentGateway, PaymentStatus
 from app.models.print_job import PrintJob
@@ -53,6 +54,7 @@ class OrderCreate(BaseModel):
     quantity: int
     paper_type: PaperType
     address: AddressIn
+    discount_code: str | None = None
 
 
 def _log_status(db: Session, order: Order, status: OrderStatus, note: str | None = None):
@@ -70,11 +72,23 @@ def create_order(
     user: User = Depends(get_current_user),
 ):
     try:
-        print_amount = get_price(body.size, body.paper_type, body.quantity)
+        print_amount = get_price(db, body.size, body.paper_type, body.quantity)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    shipping_cost = get_shipping_cost()
+    discount_amount = 0
+    discount_percent = None
+    normalized_discount_code = None
+    if body.discount_code:
+        normalized_discount_code = body.discount_code.strip().upper()
+        code_row = db.exec(select(DiscountCode).where(DiscountCode.code == normalized_discount_code)).first()
+        if not code_row or not code_row.active:
+            raise HTTPException(status_code=400, detail="کد تخفیف نامعتبر یا غیرفعال است")
+        discount_percent = code_row.percent
+        discount_amount = round(print_amount * discount_percent / 100)
+        print_amount = print_amount - discount_amount
+
+    shipping_cost = get_shipping_cost(db)
     amount = print_amount + shipping_cost
 
     address = Address(
@@ -98,7 +112,9 @@ def create_order(
         paper_type=body.paper_type,
         quantity=body.quantity,
         total_price=amount,
-        # Searchable code used across the atelier/ops panels (e.g. ORD-000123).
+        discount_code=normalized_discount_code,
+        discount_percent=discount_percent,
+        discount_amount=discount_amount,
         order_code=next_order_code(db),
     )
     db.add(order)
@@ -110,8 +126,11 @@ def create_order(
     return {
         "order_id": order.id,
         "amount_due": amount,
-        "print_amount": print_amount,
+        "print_amount": print_amount + discount_amount,
         "shipping_cost": shipping_cost,
+        "discount_amount": discount_amount,
+        "discount_code": normalized_discount_code,
+        "discount_percent": discount_percent,
     }
 
 

@@ -9,15 +9,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from app.api.deps import get_current_operator
+from app.api.deps import require_staff_role
 from app.core.database import get_session
-from app.models.operator import Operator
+from app.models.staff import StaffRole
 from app.models.order import FulfillmentStatus, Order
 from app.services.serializers import order_summary
 
 router = APIRouter(prefix="/api/ops/packing", tags=["ops-packing"])
 
-# The 8 packing checklist items (BRD 5.7 #2), in display order.
 CHECKLIST_ITEMS: list[tuple[str, str]] = [
     ("piece_count", "تعداد قطعات مطابقت دارد"),
     ("print_quality", "کیفیت چاپ تأیید شد"),
@@ -36,16 +35,15 @@ def _empty_checklist() -> dict:
 
 
 @router.get("/checklist-template")
-def checklist_template(_: Operator = Depends(get_current_operator)):
+def checklist_template(_=Depends(require_staff_role(StaffRole.ATELIER))):
     return {"items": [{"key": key, "label": label} for key, label in CHECKLIST_ITEMS]}
 
 
 @router.get("/pending")
 def pending(
     db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
+    _=Depends(require_staff_role(StaffRole.ATELIER)),
 ):
-    """Orders ready to pack or mid-packing, with their current checklist."""
     orders = db.exec(
         select(Order).where(
             Order.fulfillment_status.in_(
@@ -77,7 +75,7 @@ def _load_packable(db: Session, order_id: uuid.UUID) -> Order:
 def start(
     order_id: uuid.UUID,
     db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
+    _=Depends(require_staff_role(StaffRole.ATELIER)),
 ):
     order = _load_packable(db, order_id)
     order.fulfillment_status = FulfillmentStatus.PACKING
@@ -90,7 +88,6 @@ def start(
 
 
 class ChecklistPatch(BaseModel):
-    # Partial update: only the toggled keys need to be sent.
     checklist: dict[str, bool]
 
 
@@ -99,7 +96,7 @@ def update_checklist(
     order_id: uuid.UUID,
     body: ChecklistPatch,
     db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
+    _=Depends(require_staff_role(StaffRole.ATELIER)),
 ):
     order = _load_packable(db, order_id)
     current = dict(order.packing_checklist or _empty_checklist())
@@ -119,7 +116,7 @@ def update_checklist(
 def confirm(
     order_id: uuid.UUID,
     db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
+    _=Depends(require_staff_role(StaffRole.ATELIER)),
 ):
     order = _load_packable(db, order_id)
     checklist = order.packing_checklist or _empty_checklist()

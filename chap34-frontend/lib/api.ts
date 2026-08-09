@@ -149,12 +149,13 @@ export const api = {
       postal_code: string;
       phone: string;
     };
+    discount_code?: string | null;
   }) =>
     request("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }) as Promise<{ order_id: string; amount_due: number; print_amount: number; shipping_cost: number }>,
+    }) as Promise<{ order_id: string; amount_due: number; print_amount: number; shipping_cost: number; discount_amount: number; discount_percent: number | null; discount_code: string | null }>,
 
   initPayment: (orderId: string) =>
     request(`/api/payment/init?order_id=${orderId}`, { method: "POST" }) as Promise<{

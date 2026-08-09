@@ -37,8 +37,6 @@ def order_detail(db: Session, order: Order) -> dict:
     data.update(
         {
             "total_price": order.total_price,
-            "actual_piece_count": order.actual_piece_count,
-            "qc_reject_reason": order.qc_reject_reason.value if order.qc_reject_reason else None,
             "packing_checklist": order.packing_checklist,
             "shipped_at": order.shipped_at.isoformat() if order.shipped_at else None,
             "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None,

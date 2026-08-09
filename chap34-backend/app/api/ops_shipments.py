@@ -11,9 +11,9 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from app.api.deps import get_current_operator
+from app.api.deps import require_staff_role
 from app.core.database import get_session
-from app.models.operator import Operator
+from app.models.staff import StaffRole
 from app.models.order import FulfillmentStatus, Order
 from app.models.shipment import Shipment
 from app.services import fulfillment
@@ -51,9 +51,8 @@ def _pdf_response(payload: bytes, media_type: str, filename: str) -> Response:
 @router.get("/shipments/packable")
 def packable(
     db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
+    _=Depends(require_staff_role(StaffRole.ATELIER)),
 ):
-    """`packed` orders not yet in a shipment (BRD 5.8 #1)."""
     orders = db.exec(
         select(Order).where(
             Order.fulfillment_status == FulfillmentStatus.PACKED,
@@ -71,9 +70,8 @@ class CreateShipmentBody(BaseModel):
 def create_shipment(
     body: CreateShipmentBody,
     db: Session = Depends(get_session),
-    operator: Operator = Depends(get_current_operator),
+    staff=Depends(require_staff_role(StaffRole.ATELIER)),
 ):
-    """Group packed orders into a shipment, moving them to `ready_to_ship`."""
     if not body.order_ids:
         raise HTTPException(status_code=400, detail="حداقل یک سفارش را انتخاب کنید")
 
@@ -91,7 +89,7 @@ def create_shipment(
 
     shipment = Shipment(
         code=next_shipment_code(db),
-        operator_id=operator.id,
+        staff_id=staff.id,
         order_count=len(orders),
     )
     db.add(shipment)
@@ -111,7 +109,7 @@ def create_shipment(
 @router.get("/shipments")
 def list_shipments(
     db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
+    _=Depends(require_staff_role(StaffRole.ATELIER)),
 ):
     shipments = db.exec(select(Shipment).order_by(Shipment.created_at.desc())).all()
     return [
@@ -130,7 +128,7 @@ def list_shipments(
 def get_shipment(
     shipment_id: uuid.UUID,
     db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
+    _=Depends(require_staff_role(StaffRole.ATELIER)),
 ):
     shipment = _get_shipment(db, shipment_id)
     orders = _shipment_orders(db, shipment.id)
@@ -149,10 +147,9 @@ def get_shipment(
 def post_delivery_list(
     shipment_id: uuid.UUID,
     db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
+    _=Depends(require_staff_role(StaffRole.ATELIER)),
     format: str = Query(default="pdf"),
 ):
-    """Hand-off manifest for the post office (BRD 5.8 #4)."""
     shipment = _get_shipment(db, shipment_id)
     orders = _shipment_orders(db, shipment.id)
     rows = [fulfillment.build_label_data(db, o) for o in orders]
@@ -166,10 +163,9 @@ def post_delivery_list(
 def shipment_labels(
     shipment_id: uuid.UUID,
     db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
+    _=Depends(require_staff_role(StaffRole.ATELIER)),
     format: str = Query(default="pdf"),
 ):
-    """All postal labels for the shipment in one file (BRD 5.8 #5)."""
     shipment = _get_shipment(db, shipment_id)
     orders = _shipment_orders(db, shipment.id)
     if not orders:
@@ -185,9 +181,8 @@ def shipment_labels(
 def hand_to_post(
     shipment_id: uuid.UUID,
     db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
+    _=Depends(require_staff_role(StaffRole.ATELIER)),
 ):
-    """Move every order in the shipment to `handed_to_post` (BRD 5.8 #6)."""
     shipment = _get_shipment(db, shipment_id)
     shipment.handed_to_post_at = datetime.utcnow()
     db.add(shipment)
@@ -208,10 +203,8 @@ def set_tracking_code(
     order_id: uuid.UUID,
     body: TrackingBody,
     db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
+    _=Depends(require_staff_role(StaffRole.ATELIER)),
 ):
-    """Register a tracking code and move the order to `shipped` (BRD 5.8 #7).
-    Uses the same shared helper as the atelier panel."""
     order = fulfillment.get_order_or_404(db, order_id)
     order = fulfillment.register_tracking_and_ship(db, order, body.tracking_code)
     return order_summary(db, order)
@@ -221,9 +214,8 @@ def set_tracking_code(
 def mark_delivered(
     order_id: uuid.UUID,
     db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
+    _=Depends(require_staff_role(StaffRole.ATELIER)),
 ):
-    """Mark the order delivered to the customer (BRD 5.8 #8)."""
     order = fulfillment.get_order_or_404(db, order_id)
     order.fulfillment_status = FulfillmentStatus.DELIVERED
     order.delivered_at = datetime.utcnow()
@@ -237,10 +229,9 @@ def mark_delivered(
 def order_shipping_label(
     order_id: uuid.UUID,
     db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
+    _=Depends(require_staff_role(StaffRole.ATELIER)),
     format: str = Query(default="pdf"),
 ):
-    """Standalone postal label for one order (BRD 5.8 #9)."""
     order = fulfillment.get_order_or_404(db, order_id)
     label = render_shipping_label(fulfillment.build_label_data(db, order))
     payload, media_type = render_output([label], format)

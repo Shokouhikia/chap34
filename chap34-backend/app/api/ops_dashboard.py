@@ -5,23 +5,19 @@ the lifecycle, used to render the clickable status cards.
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
-from app.api.deps import get_current_operator
+from app.api.deps import require_staff_role
 from app.core.database import get_session
-from app.models.operator import Operator
+from app.models.staff import StaffRole
 from app.models.order import FulfillmentStatus, Order
 from app.services.status_mapping import count_by_status
 
 router = APIRouter(prefix="/api/ops", tags=["ops-dashboard"])
 
-# The stages surfaced as dashboard cards, with Persian labels and display order.
 DASHBOARD_CARDS: list[tuple[str, str]] = [
     (FulfillmentStatus.REGISTERED.value, "سفارش‌های جدید"),
     (FulfillmentStatus.QUEUED.value, "در صف چاپ"),
     (FulfillmentStatus.PRINTING.value, "در حال چاپ"),
     (FulfillmentStatus.PRINTED.value, "چاپ‌شده"),
-    (FulfillmentStatus.QC_PENDING.value, "در انتظار کنترل کیفیت"),
-    (FulfillmentStatus.QC_REJECTED.value, "مردود کیفیت"),
-    (FulfillmentStatus.SORTING.value, "در حال تفکیک"),
     (FulfillmentStatus.READY_TO_PACK.value, "آماده بسته‌بندی"),
     (FulfillmentStatus.PACKING.value, "در حال بسته‌بندی"),
     (FulfillmentStatus.PACKED.value, "بسته‌بندی‌شده"),
@@ -35,7 +31,7 @@ DASHBOARD_CARDS: list[tuple[str, str]] = [
 @router.get("/dashboard")
 def dashboard(
     db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
+    _=Depends(require_staff_role(StaffRole.ATELIER)),
 ):
     statuses = [o.fulfillment_status for o in db.exec(select(Order)).all()]
     counts = count_by_status(statuses)

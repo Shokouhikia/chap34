@@ -29,17 +29,13 @@ class OrderStatus(str, Enum):
 
 class FulfillmentStatus(str, Enum):
     """
-    The 13-stage operational lifecycle from BRD 5.9, tracked independently of
-    the customer-facing `status` field (which powers the customer tracking
-    screen). The atelier and operations panels work ONLY with this field.
+    The operational lifecycle, tracked independently of
+    the customer-facing `status` field.
     """
     REGISTERED = "registered"
     QUEUED = "queued"
     PRINTING = "printing"
     PRINTED = "printed"
-    QC_PENDING = "qc_pending"
-    QC_REJECTED = "qc_rejected"       # sent back to the print queue with a reason
-    SORTING = "sorting"
     READY_TO_PACK = "ready_to_pack"
     PACKING = "packing"
     PACKED = "packed"
@@ -50,28 +46,15 @@ class FulfillmentStatus(str, Enum):
 
 
 class SheetSize(str, Enum):
-    """Physical print-sheet size. Deliberately separate from PrintSize (the
-    3x4/6x8 photo size) - a sheet holds many photos, so the two are
-    different concepts even if the values look similar."""
     SIZE_10X15 = "10x15"
     SIZE_A4 = "a4"
-
-
-class QCRejectReason(str, Enum):
-    LOW_QUALITY = "low_quality"           # کیفیت پایین
-    WRONG_COLOR = "wrong_color"           # رنگ نامناسب
-    WRONG_CUT = "wrong_cut"               # برش اشتباه
-    INCOMPLETE_PRINT = "incomplete_print" # چاپ ناقص
-    PAPER_DAMAGE = "paper_damage"         # خرابی کاغذ
-    OTHER = "other"                       # سایر
 
 
 class Order(SQLModel, table=True):
     """
     A print order placed against one finished (AI-generated) photo,
     shipped to one address. Price is always computed and re-validated
-    server-side from the pricing matrix (app/core/pricing.py) - the
-    frontend's displayed total is never trusted as-is.
+    server-side from the pricing matrix.
     """
     __tablename__ = "orders"
 
@@ -84,20 +67,12 @@ class Order(SQLModel, table=True):
     paper_type: PaperType
     quantity: int
 
-    # Total price in Tomans, computed server-side from the pricing matrix.
     total_price: int
 
     status: OrderStatus = Field(default=OrderStatus.CREATED, index=True)
 
-    # --- Atelier / operations fulfillment fields (new panels) ---------------
-    # All nullable / defaulted so the migration doesn't break existing rows.
-
-    # Human-searchable code, e.g. ORD-000123. Filled in at create_order time.
     order_code: str = Field(index=True, unique=True)
 
-    atelier_id: uuid.UUID | None = Field(
-        default=None, foreign_key="ateliers.id", index=True
-    )
     fulfillment_status: FulfillmentStatus = Field(
         default=FulfillmentStatus.REGISTERED, index=True
     )
@@ -109,15 +84,14 @@ class Order(SQLModel, table=True):
         default=None, foreign_key="shipments.id", index=True
     )
 
+    discount_code: str | None = Field(default=None, max_length=30)
+    discount_percent: int | None = None
+    discount_amount: int = Field(default=0)
+
     tracking_code: str | None = Field(default=None, max_length=50)
     shipped_at: datetime | None = None
     delivered_at: datetime | None = None
 
-    qc_reject_reason: QCRejectReason | None = None
-
-    # Piece count entered at the sorting stage; compared against `quantity`.
-    actual_piece_count: int | None = None
-    # The 8-item packing checklist (BRD 5.7 #2), as {item_key: bool}.
     packing_checklist: dict | None = Field(default=None, sa_column=Column(JSONB))
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -125,10 +99,6 @@ class Order(SQLModel, table=True):
 
 
 class OrderStatusHistory(SQLModel, table=True):
-    """
-    Append-only log of status changes for an order. This is what powers
-    the tracking timeline screen - one row per transition.
-    """
     __tablename__ = "order_status_history"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)

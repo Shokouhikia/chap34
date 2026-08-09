@@ -1,0 +1,159 @@
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlmodel import Session, select
+
+from app.api.deps import require_staff_role
+from app.core.database import get_session
+from app.core.security import hash_password
+from app.models.discount import DiscountCode
+from app.models.setting import (
+    KEY_BASE_URL,
+    KEY_GOOGLE_AI_API_KEY,
+    KEY_PAPER_MULTIPLIER_GLOSSY,
+    KEY_PAPER_MULTIPLIER_MATTE,
+    KEY_PRICE_BASE_QTY_12,
+    KEY_PRICE_BASE_QTY_24,
+    KEY_PRICE_BASE_QTY_6,
+    KEY_SHIPPING_COST,
+    KEY_SIZE_MULTIPLIER_3X4,
+    KEY_SIZE_MULTIPLIER_6X8,
+    KEY_SMS_API_KEY,
+    KEY_SMS_PASSWORD,
+    KEY_SMS_PROVIDER,
+    KEY_SMS_USERNAME,
+    KEY_ZARINPAL_MERCHANT_ID,
+    SECRET_KEYS,
+)
+from app.models.staff import StaffAccount, StaffRole
+from app.services import settings_service
+
+router = APIRouter(prefix="/api/admin", tags=["admin"])
+require_admin = require_staff_role(StaffRole.ADMIN)
+
+
+@router.get("/settings")
+def get_settings(db: Session = Depends(get_session), _staff: StaffAccount = Depends(require_admin)):
+    raw = settings_service.get_all(db)
+    out = {}
+    for key, value in raw.items():
+        if key in SECRET_KEYS:
+            out[key] = settings_service.mask(value)
+            out[f"_has_{key}"] = bool(value)
+        else:
+            out[key] = value
+    return {"settings": out}
+
+
+class SettingsUpdate(BaseModel):
+    sms_provider: str | None = None
+    sms_api_key: str | None = None
+    sms_username: str | None = None
+    sms_password: str | None = None
+    google_ai_api_key: str | None = None
+    zarinpal_merchant_id: str | None = None
+    base_url: str | None = None
+    price_base_qty_6: str | None = None
+    price_base_qty_12: str | None = None
+    price_base_qty_24: str | None = None
+    size_multiplier_3x4: str | None = None
+    size_multiplier_6x8: str | None = None
+    paper_multiplier_glossy: str | None = None
+    paper_multiplier_matte: str | None = None
+    shipping_cost: str | None = None
+
+
+@router.put("/settings")
+def update_settings(body: SettingsUpdate, db: Session = Depends(get_session), _staff: StaffAccount = Depends(require_admin)):
+    settings_service.set_values(db, {
+        KEY_SMS_PROVIDER: body.sms_provider or "",
+        KEY_SMS_API_KEY: body.sms_api_key or "",
+        KEY_SMS_USERNAME: body.sms_username or "",
+        KEY_SMS_PASSWORD: body.sms_password or "",
+        KEY_GOOGLE_AI_API_KEY: body.google_ai_api_key or "",
+        KEY_ZARINPAL_MERCHANT_ID: body.zarinpal_merchant_id or "",
+        KEY_BASE_URL: body.base_url or "",
+        KEY_PRICE_BASE_QTY_6: body.price_base_qty_6 or "",
+        KEY_PRICE_BASE_QTY_12: body.price_base_qty_12 or "",
+        KEY_PRICE_BASE_QTY_24: body.price_base_qty_24 or "",
+        KEY_SIZE_MULTIPLIER_3X4: body.size_multiplier_3x4 or "",
+        KEY_SIZE_MULTIPLIER_6X8: body.size_multiplier_6x8 or "",
+        KEY_PAPER_MULTIPLIER_GLOSSY: body.paper_multiplier_glossy or "",
+        KEY_PAPER_MULTIPLIER_MATTE: body.paper_multiplier_matte or "",
+        KEY_SHIPPING_COST: body.shipping_cost or "",
+    })
+    return {"ok": True}
+
+
+@router.get("/atelier-accounts")
+def list_atelier_accounts(db: Session = Depends(get_session), _staff: StaffAccount = Depends(require_admin)):
+    rows = db.exec(select(StaffAccount).where(StaffAccount.role == StaffRole.ATELIER)).all()
+    return [{"id": r.id, "username": r.username, "name": r.name, "is_active": r.is_active, "created_at": r.created_at} for r in rows]
+
+
+class CreateAtelierAccount(BaseModel):
+    name: str
+    username: str
+    password: str
+
+
+@router.post("/atelier-accounts")
+def create_atelier_account(body: CreateAtelierAccount, db: Session = Depends(get_session), _staff: StaffAccount = Depends(require_admin)):
+    existing = db.exec(select(StaffAccount).where(StaffAccount.username == body.username)).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="این نام کاربری قبلاً استفاده شده")
+    account = StaffAccount(name=body.name, username=body.username, password_hash=hash_password(body.password), role=StaffRole.ATELIER)
+    db.add(account)
+    db.commit()
+    db.refresh(account)
+    return {"id": account.id, "username": account.username, "name": account.name}
+
+
+@router.delete("/atelier-accounts/{account_id}")
+def deactivate_atelier_account(account_id: str, db: Session = Depends(get_session), _staff: StaffAccount = Depends(require_admin)):
+    account = db.get(StaffAccount, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="حساب یافت نشد")
+    account.is_active = False
+    db.add(account)
+    db.commit()
+    return {"ok": True}
+
+
+# ---- discount codes ----
+
+@router.get("/discount-codes")
+def list_discount_codes(db: Session = Depends(get_session), _staff: StaffAccount = Depends(require_admin)):
+    rows = db.exec(select(DiscountCode).order_by(DiscountCode.created_at.desc())).all()
+    return rows
+
+
+class CreateDiscountCode(BaseModel):
+    code: str
+    percent: int
+
+
+@router.post("/discount-codes")
+def create_discount_code(body: CreateDiscountCode, db: Session = Depends(get_session), _staff: StaffAccount = Depends(require_admin)):
+    if not (1 <= body.percent <= 100):
+        raise HTTPException(status_code=400, detail="درصد تخفیف باید بین ۱ تا ۱۰۰ باشد")
+    code = body.code.strip().upper()
+    existing = db.exec(select(DiscountCode).where(DiscountCode.code == code)).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="این کد تخفیف قبلاً ساخته شده")
+    row = DiscountCode(code=code, percent=body.percent, active=True)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.patch("/discount-codes/{code_id}/toggle")
+def toggle_discount_code(code_id: str, db: Session = Depends(get_session), _staff: StaffAccount = Depends(require_admin)):
+    row = db.get(DiscountCode, code_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="کد یافت نشد")
+    row.active = not row.active
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row

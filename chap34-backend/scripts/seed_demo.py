@@ -10,20 +10,18 @@ It is idempotent-ish: it skips creating accounts/orders that already exist by
 username / order_code, so re-running won't pile up duplicates.
 """
 import sys
-import uuid
 from datetime import datetime
 from pathlib import Path
 
-# Allow `python scripts/seed_demo.py` as well as `-m scripts.seed_demo`.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlmodel import Session, select  # noqa: E402
+from sqlalchemy import text  # noqa: E402
 
 from app.core.database import engine  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.models.address import Address  # noqa: E402
-from app.models.atelier import Atelier  # noqa: E402
-from app.models.operator import Operator, OperatorRole  # noqa: E402
+from app.models.staff import StaffAccount, StaffRole  # noqa: E402
 from app.models.order import (  # noqa: E402
     FulfillmentStatus,
     Order,
@@ -37,31 +35,32 @@ from app.models.user import User  # noqa: E402
 DEMO_PASSWORD = "demo1234"
 
 
-def _get_or_create_atelier(db: Session) -> Atelier:
-    existing = db.exec(select(Atelier).where(Atelier.username == "atelier1")).first()
+def _get_or_create_staff(db: Session) -> StaffAccount:
+    existing = db.exec(select(StaffAccount).where(StaffAccount.username == "atelier1")).first()
     if existing:
         return existing
-    atelier = Atelier(
+    staff = StaffAccount(
         name="آتلیه نمونه",
         username="atelier1",
         password_hash=hash_password(DEMO_PASSWORD),
+        role=StaffRole.ATELIER,
     )
-    db.add(atelier)
+    db.add(staff)
     db.commit()
-    db.refresh(atelier)
-    return atelier
+    db.refresh(staff)
+    return staff
 
 
-def _ensure_operators(db: Session) -> None:
+def _ensure_staff(db: Session) -> None:
     accounts = [
-        ("اپراتور نمونه", "operator1", OperatorRole.OPERATOR),
-        ("مدیر سیستم", "admin", OperatorRole.ADMIN),
+        ("آتلیه نمونه ۲", "atelier2", StaffRole.ATELIER),
+        ("مدیر سیستم", "admin", StaffRole.ADMIN),
     ]
     for name, username, role in accounts:
-        if db.exec(select(Operator).where(Operator.username == username)).first():
+        if db.exec(select(StaffAccount).where(StaffAccount.username == username)).first():
             continue
         db.add(
-            Operator(
+            StaffAccount(
                 name=name,
                 username=username,
                 password_hash=hash_password(DEMO_PASSWORD),
@@ -92,23 +91,24 @@ def _demo_user_and_photo(db: Session) -> tuple[User, Photo]:
         db.refresh(photo)
     return user, photo
 
-
-def _seed_orders(db: Session, atelier: Atelier) -> None:
+def _seed_orders(db: Session, staff: StaffAccount) -> None:
     user, photo = _demo_user_and_photo(db)
 
-    # Spread demo orders across a few stages so every panel screen has data.
     specs = [
         ("ORD-000101", "علی رضایی", 6, FulfillmentStatus.REGISTERED),
         ("ORD-000102", "مریم حسینی", 12, FulfillmentStatus.REGISTERED),
         ("ORD-000103", "رضا کریمی", 24, FulfillmentStatus.REGISTERED),
-        ("ORD-000104", "زهرا موسوی", 6, FulfillmentStatus.QC_PENDING),
-        ("ORD-000105", "حسین عباسی", 12, FulfillmentStatus.SORTING),
-        ("ORD-000106", "فاطمه احمدی", 6, FulfillmentStatus.READY_TO_PACK),
-        ("ORD-000107", "نگار سلطانی", 12, FulfillmentStatus.PACKED),
+        ("ORD-000104", "زهرا موسوی", 6, FulfillmentStatus.PRINTED),
+        ("ORD-000105", "حسین عباسی", 12, FulfillmentStatus.READY_TO_PACK),
+        ("ORD-000106", "فاطمه احمدی", 6, FulfillmentStatus.PACKED),
     ]
 
     for code, full_name, qty, status in specs:
-        if db.exec(select(Order).where(Order.order_code == code)).first():
+        row = db.execute(
+            text("SELECT order_code FROM orders WHERE order_code = :code"),
+            {"code": code},
+        ).first()
+        if row:
             continue
         address = Address(
             user_id=user.id,
@@ -134,7 +134,6 @@ def _seed_orders(db: Session, atelier: Atelier) -> None:
                 total_price=400_000,
                 status=OrderStatus.PAID,
                 order_code=code,
-                atelier_id=atelier.id,
                 fulfillment_status=status,
                 created_at=datetime.utcnow(),
             )
@@ -144,13 +143,14 @@ def _seed_orders(db: Session, atelier: Atelier) -> None:
 
 def main() -> None:
     with Session(engine) as db:
-        atelier = _get_or_create_atelier(db)
-        _ensure_operators(db)
-        _seed_orders(db, atelier)
+        staff = _get_or_create_staff(db)
+        _ensure_staff(db)
+        _seed_orders(db, staff)
+        from app.services import settings_service
+        settings_service.ensure_defaults(db)
 
     print("Seed complete.")
     print(f"  atelier login : atelier1 / {DEMO_PASSWORD}")
-    print(f"  operator login: operator1 / {DEMO_PASSWORD}")
     print(f"  admin login   : admin / {DEMO_PASSWORD}")
 
 

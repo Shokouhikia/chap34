@@ -1,6 +1,5 @@
 """
-Operations order list + print-batch creation (BRD 5.4 #1-4) and admin
-atelier assignment (spec open-question #5).
+Operations order list + print-batch creation (BRD 5.4 #1-4).
 """
 import uuid
 from datetime import datetime
@@ -9,10 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from app.api.deps import get_current_operator
+from app.api.deps import require_staff_role
 from app.core.database import get_session
-from app.models.atelier import Atelier
-from app.models.operator import Operator
+from app.models.staff import StaffRole
 from app.models.order import FulfillmentStatus, Order, SheetSize
 from app.models.print_batch import PrintBatch, PrintBatchStatus
 from app.services.codes import next_batch_code
@@ -24,14 +22,12 @@ router = APIRouter(prefix="/api/ops", tags=["ops-orders"])
 @router.get("/orders")
 def list_orders(
     db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
+    _=Depends(require_staff_role(StaffRole.ATELIER)),
     search: str | None = Query(default=None),
     status: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=30, ge=1, le=100),
 ):
-    """Search by order code / customer name and filter by operational status
-    (BRD 5.4 #1-2)."""
     orders = db.exec(select(Order)).all()
 
     if status and status != "all":
@@ -43,7 +39,6 @@ def list_orders(
 
     if search:
         needle = search.strip().lower()
-        # Match against order code or customer name (via address).
         from app.services.fulfillment import customer_name_for
 
         orders = [
@@ -75,10 +70,8 @@ class CreateBatchBody(BaseModel):
 def create_batch(
     body: CreateBatchBody,
     db: Session = Depends(get_session),
-    operator: Operator = Depends(get_current_operator),
+    staff=Depends(require_staff_role(StaffRole.ATELIER)),
 ):
-    """Create a print batch from `registered` orders, moving them to `queued`
-    (BRD 5.4 #3-4)."""
     if not body.order_ids:
         raise HTTPException(status_code=400, detail="حداقل یک سفارش را انتخاب کنید")
 
@@ -87,11 +80,7 @@ def create_batch(
         order = db.get(Order, oid)
         if not order:
             raise HTTPException(status_code=404, detail=f"سفارش {oid} یافت نشد")
-        # Fresh orders (registered) plus QC-rejected orders awaiting reprint.
-        if order.fulfillment_status not in (
-            FulfillmentStatus.REGISTERED,
-            FulfillmentStatus.QC_REJECTED,
-        ):
+        if order.fulfillment_status != FulfillmentStatus.REGISTERED:
             raise HTTPException(
                 status_code=400,
                 detail=f"سفارش {order.order_code} قابل افزودن به بچ چاپ نیست",
@@ -102,7 +91,7 @@ def create_batch(
         code=next_batch_code(db),
         sheet_size=body.sheet_size,
         status=PrintBatchStatus.QUEUED,
-        operator_id=operator.id,
+        staff_id=staff.id,
         order_count=len(orders),
         piece_count=sum(o.quantity for o in orders),
     )
@@ -124,30 +113,3 @@ def create_batch(
         "piece_count": batch.piece_count,
         "sheet_size": batch.sheet_size.value,
     }
-
-
-class AssignAtelierBody(BaseModel):
-    atelier_id: uuid.UUID
-
-
-@router.patch("/orders/{order_id}/assign-atelier")
-def assign_atelier(
-    order_id: uuid.UUID,
-    body: AssignAtelierBody,
-    db: Session = Depends(get_session),
-    _: Operator = Depends(get_current_operator),
-):
-    """Assign / reassign an order to an atelier (spec open-question #5:
-    manual admin assignment; automatic round-robin is out of scope)."""
-    order = db.get(Order, order_id)
-    if not order:
-        raise HTTPException(status_code=404, detail="سفارش یافت نشد")
-    atelier = db.get(Atelier, body.atelier_id)
-    if not atelier or not atelier.is_active:
-        raise HTTPException(status_code=404, detail="آتلیه یافت نشد یا غیرفعال است")
-
-    order.atelier_id = atelier.id
-    order.updated_at = datetime.utcnow()
-    db.add(order)
-    db.commit()
-    return order_summary(db, order)
