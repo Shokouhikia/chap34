@@ -113,6 +113,34 @@ def _remove_and_replace_background(img_bgr: np.ndarray, background_color: str) -
     return cv2.cvtColor(np.array(bg), cv2.COLOR_RGB2BGR)
 
 
+def generate_id_photo_fallback(source_path: str, dest_path: str) -> None:
+    """
+    TEMPORARY bypass for generate_id_photo: face align/crop (InsightFace)
+    and background removal (rembg) both use onnxruntime models that
+    OOM-crash on Render's free 512MB tier (same ceiling hit by gender
+    detection - see the note on the detect-gender route in app.api.photos).
+    Just center-crops the original photo to 3:4, no face detection or
+    background replacement, so the pipeline can complete. Switch callers
+    back to generate_id_photo once hosting with more memory is available.
+    """
+    img = cv2.imread(source_path)
+    if img is None:
+        raise NoFaceError("تصویر قابل خواندن نیست")
+
+    h, w = img.shape[:2]
+    if w / h > TARGET_ASPECT:
+        new_w = int(h * TARGET_ASPECT)
+        left = (w - new_w) // 2
+        cropped = img[:, left:left + new_w]
+    else:
+        new_h = int(w / TARGET_ASPECT)
+        top = (h - new_h) // 2
+        cropped = img[top:top + new_h, :]
+
+    Path(dest_path).parent.mkdir(parents=True, exist_ok=True)
+    cv2.imwrite(dest_path, cropped)
+
+
 def generate_id_photo(source_path: str, dest_path: str, background_color: str = "white") -> None:
     """
     Full pipeline: detect the face, straighten it, crop to a 3:4 headshot,

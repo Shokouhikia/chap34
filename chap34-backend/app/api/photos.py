@@ -27,7 +27,7 @@ from app.core.database import get_session
 from app.models.photo import Gender, Photo, PhotoStatus
 from app.models.session import AnonymousSession
 from app.services.photo_generation import NoFaceError as GenerationNoFaceError
-from app.services.photo_generation import generate_id_photo
+from app.services.photo_generation import generate_id_photo_fallback
 
 router = APIRouter(prefix="/api/photo", tags=["photo"])
 
@@ -128,7 +128,7 @@ def generate_photo(
     result_path = UPLOAD_DIR / result_name
 
     try:
-        generate_id_photo(str(original_path), str(result_path), body.background_color)
+        generate_id_photo_fallback(str(original_path), str(result_path))
     except GenerationNoFaceError as exc:
         photo.status = PhotoStatus.FAILED
         db.add(photo)
