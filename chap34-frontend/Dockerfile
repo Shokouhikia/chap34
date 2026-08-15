@@ -13,6 +13,11 @@ COPY . .
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
+# Turns on Next's "standalone" output, which the runner stage below copies.
+# Only this Docker build wants it - Netlify's Next.js runtime chokes on it,
+# so next.config.js keeps standalone opt-in via this flag.
+ENV DOCKER_BUILD=1
+
 RUN npm run build
 
 FROM node:20-alpine AS runner

@@ -72,10 +72,25 @@ NEXT_PUBLIC_API_URL=https://chap34-backend.onrender.com \
 `NEXT_PUBLIC_*` موقع build توی باندل inline می‌شه، هر بار که این مقدار
 عوض بشه باید یه build جدید بگیره.
 
-نکته‌ی فنی: `next.config.js` مقدار `output: "standalone"` رو فقط وقتی
-`NETLIFY` ست نشده فعال می‌کنه (خود Netlify موقع build خودکار
-`NETLIFY=true` رو ست می‌کنه) — چون این خروجی با Netlify Next Runtime
-ناسازگاره ولی برای Dockerfile پرتابل (پایین رو ببین) لازمه.
+نکته‌ی فنی: `output: "standalone"` توی `next.config.js` فقط وقتی فعال
+می‌شه که `DOCKER_BUILD` ست شده باشه (این رو `chap34-frontend/Dockerfile`
+خودش ست می‌کنه) — چون این خروجی با Netlify Next Runtime ناسازگاره ولی
+برای Dockerfile پرتابل (پایین رو ببین) لازمه.
+
+⚠️ قبلاً این شرط برعکس بود (`process.env.NETLIFY ? undefined :
+"standalone"`) با این فرض که Netlify همیشه `NETLIFY=true` رو ست می‌کنه.
+توی دیپلوی **لوکال** با `netlify deploy --build` این فرض غلطه:
+`@netlify/build` محیطی که به دستور build می‌ده رو تمیز می‌کنه، پس
+`NETLIFY` نمی‌رسه، خروجی standalone ساخته می‌شه و بعد
+`@netlify/plugin-nextjs` موقع کپی‌کردن `.next/standalone` کرش می‌کنه
+(خطای `ENOENT`). حالا که شرط opt-in شده، نبودِ `DOCKER_BUILD` یعنی
+«standalone نساز» که همون چیزیه که همه‌ی مسیرهای غیرداکری می‌خوان.
+
+⚠️ اگه دیپلوی با خطای `ENOENT` روی `.next` یا `.netlify` خورد، اول
+مطمئن شو **هم‌زمان دو تا build روی همین پوشه اجرا نمی‌شه** (مثلاً
+`next dev` توی یه ترمینال دیگه یا یه دیپلوی نیمه‌کاره) — این دو تا
+پوشه‌ی build همدیگه رو خراب می‌کنن. بعد `rm -rf .next .netlify` بزن و
+دوباره اجرا کن.
 
 ---
 
