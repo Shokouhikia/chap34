@@ -3,27 +3,17 @@
 import { Suspense } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { api, isLoggedIn } from "@/lib/api";
+import { useState } from "react";
+import { api } from "@/lib/api";
 
-function PhonePageInner() {
+function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const photoId = searchParams.get("photoId") || "";
+  const redirect = searchParams.get("redirect") || "/account";
 
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [checkingSession, setCheckingSession] = useState(true);
-
-  useEffect(() => {
-    if (isLoggedIn()) {
-      router.replace(`/checkout/print?photoId=${photoId}`);
-      return;
-    }
-    setCheckingSession(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   async function submit() {
     if (!/^\d{11}$/.test(phone)) {
@@ -34,7 +24,7 @@ function PhonePageInner() {
     setError(null);
     try {
       await api.requestOtp(phone);
-      router.push(`/checkout/otp?photoId=${photoId}&phone=${phone}`);
+      router.push(`/login/otp?phone=${phone}&redirect=${encodeURIComponent(redirect)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "خطای ناشناخته");
     } finally {
@@ -42,30 +32,28 @@ function PhonePageInner() {
     }
   }
 
-  if (checkingSession) return null;
-
   return (
     <div className="mx-auto max-w-sm text-center">
       <h2 className="mb-2 text-xl font-extrabold text-navy">
-        برای ادامه سفارش، شماره موبایل خود را وارد کنید
+        برای مشاهده سفارشات، شماره موبایل خود را وارد کنید
       </h2>
       <p className="mb-6 text-sm text-muted">
         کد تأیید به این شماره ارسال می‌شود.
       </p>
 
-       <input
-         type="tel"
-         inputMode="numeric"
-         placeholder="۰۹۱۲xxxxxxx"
-         maxLength={11}
-         value={phone}
-         onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-         onKeyDown={(e) => {
-           if (e.key === "Enter") submit();
-         }}
-         className="field-input mb-4 text-center"
-         dir="ltr"
-       />
+      <input
+        type="tel"
+        inputMode="numeric"
+        placeholder="۰۹۱۲xxxxxxx"
+        maxLength={11}
+        value={phone}
+        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") submit();
+        }}
+        className="field-input mb-4 text-center"
+        dir="ltr"
+      />
 
       {error && <p className="mb-3 text-sm font-bold text-red-500">{error}</p>}
 
@@ -76,10 +64,10 @@ function PhonePageInner() {
   );
 }
 
-export default function PhonePage() {
+export default function LoginPage() {
   return (
     <Suspense fallback={null}>
-      <PhonePageInner />
+      <LoginPageInner />
     </Suspense>
   );
 }

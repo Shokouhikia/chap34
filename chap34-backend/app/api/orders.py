@@ -231,6 +231,37 @@ def list_my_orders(
     db: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """Phase-2 feature - the frontend's "سفارش‌های من" button is disabled
-    for now, but the endpoint is ready for when it's wired up."""
-    return db.exec(select(Order).where(Order.user_id == user.id)).all()
+    """Backs the "سفارش‌های من" tab in the customer account panel."""
+    orders = db.exec(
+        select(Order).where(Order.user_id == user.id).order_by(Order.created_at.desc())
+    ).all()
+
+    result = []
+    for order in orders:
+        address = db.get(Address, order.address_id)
+        result.append(
+            {
+                "id": order.id,
+                "order_code": order.order_code,
+                "status": order.status,
+                "size": order.size,
+                "paper_type": order.paper_type,
+                "quantity": order.quantity,
+                "total_price": order.total_price,
+                "tracking_code": order.tracking_code,
+                "created_at": order.created_at,
+                "address": (
+                    {
+                        "full_name": address.full_name,
+                        "province": address.province,
+                        "city": address.city,
+                        "full_address": address.full_address,
+                        "postal_code": address.postal_code,
+                        "phone": address.phone_number,
+                    }
+                    if address
+                    else None
+                ),
+            }
+        )
+    return result
