@@ -37,6 +37,17 @@ def create_staff_token(staff_id: uuid.UUID, role: str) -> str:
     return jwt.encode(payload, settings.secret_key, algorithm=JWT_ALGORITHM)
 
 
+def create_customer_token(user_id: uuid.UUID) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(user_id),
+        "type": "customer",
+        "iat": now,
+        "exp": now + timedelta(hours=JWT_TTL_HOURS),
+    }
+    return jwt.encode(payload, settings.secret_key, algorithm=JWT_ALGORITHM)
+
+
 def decode_token(token: str) -> dict | None:
     try:
         return jwt.decode(token, settings.secret_key, algorithms=[JWT_ALGORITHM])

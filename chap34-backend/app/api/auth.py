@@ -1,15 +1,16 @@
 """
-DEMO NOTE: OTP is completely fake here - no SMS is sent, the code is
-always "1234", and the "access token" returned on verify is literally
-the user's UUID as plain text. This is only so the frontend flow (enter
-phone -> enter code -> logged in) can be demoed end to end. Replace with
-a real SMS provider (Kavenegar/Ghasedak) + signed JWTs before launch.
+DEMO NOTE: OTP is completely fake here - no SMS is sent and the code is
+always "1234". This is only so the frontend flow (enter phone -> enter
+code -> logged in) can be demoed end to end. Replace with a real SMS
+provider (Kavenegar/Ghasedak) before launch. The access token itself is a
+real signed JWT (see create_customer_token).
 """
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.core.database import get_session
+from app.core.security import create_customer_token
 from app.models.otp import OTPCode, OTPPurpose
 from app.models.photo import Photo
 from app.models.user import User
@@ -72,7 +73,7 @@ def verify_otp(body: VerifyOtpBody, db: Session = Depends(get_session)):
             db.commit()
 
     return {
-        "token": str(user.id),  # demo only - see module docstring
+        "token": create_customer_token(user.id),
         "user_id": user.id,
         "phone": user.phone_number,
     }
