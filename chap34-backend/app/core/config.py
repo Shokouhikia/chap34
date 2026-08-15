@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     sms_api_key: str | None = None
     payment_merchant_id: str | None = None
 
+    # OpenAI Images API - used server-side only for background removal/
+    # replacement in the photo pipeline. Never expose this to the frontend.
+    openai_api_key: str | None = None
+
     storage_bucket_url: str | None = None
     storage_access_key: str | None = None
     storage_secret_key: str | None = None

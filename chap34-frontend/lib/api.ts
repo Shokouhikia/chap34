@@ -9,13 +9,21 @@ function setSessionToken(token: string) {
   window.localStorage.setItem("sessionToken", token);
 }
 
-function getAccessToken(): string | null {
+export function getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem("accessToken");
 }
 
 function setAccessToken(token: string) {
   window.localStorage.setItem("accessToken", token);
+}
+
+export function clearAccessToken() {
+  window.localStorage.removeItem("accessToken");
+}
+
+export function isLoggedIn(): boolean {
+  return !!getAccessToken();
 }
 
 async function request(path: string, options: RequestInit = {}) {
@@ -53,9 +61,17 @@ export type PrintSize = "3x4" | "6x8";
 export type PaperType = "glossy" | "matte";
 
 export const api = {
-  uploadPhoto: async (file: File) => {
+  uploadPhoto: async (
+    file: File | Blob,
+    clientGender?: Gender,
+    clientGenderConfidence?: number
+  ) => {
     const form = new FormData();
-    form.append("file", file);
+    form.append("file", file, file instanceof File ? file.name : "photo.jpg");
+    if (clientGender) form.append("client_gender", clientGender);
+    if (clientGenderConfidence !== undefined) {
+      form.append("client_gender_confidence", String(clientGenderConfidence));
+    }
     const headers: Record<string, string> = {};
     const sessionToken = getSessionToken();
     if (sessionToken) headers["X-Session-Token"] = sessionToken;
@@ -103,6 +119,10 @@ export const api = {
     }) as Promise<{ photo_id: string; status: string; result_photo_url: string }>,
 
   getPhoto: (photoId: string) => request(`/api/photo/${photoId}`),
+
+  getMyPhotos: () => request("/api/photo/mine"),
+
+  getMyOrders: () => request("/api/orders"),
 
   requestOtp: (phone: string) =>
     request("/api/auth/send-otp", {

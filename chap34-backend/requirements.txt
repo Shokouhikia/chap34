@@ -10,6 +10,8 @@ pydantic-settings==2.5.2
 # what's installed here, so we call the bcrypt API ourselves in security.py.
 bcrypt==5.0.0
 python-multipart==0.0.9
+# Outbound HTTP calls to the OpenAI Images API (photo_generation.py).
+httpx==0.27.2
 
 # Atelier/operations panels: signed JWT sessions, and internal QR codes
 # stamped onto print sheets.
@@ -24,9 +26,8 @@ qrcode==7.4.2
 arabic-reshaper==3.0.0
 python-bidi==0.4.2
 
-# Local AI gender detection (InsightFace buffalo_l on CPU via ONNX Runtime).
-opencv-python-headless==4.10.0.84
-insightface==1.0.1
-onnxruntime==1.28.0
-rembg==2.0.65
+# Face detection + gender detection moved client-side (browser, face-api.js);
+# background removal moved to the OpenAI Images API (see photo_generation.py).
+# InsightFace/onnxruntime/rembg/opencv are gone - they were the actual cause
+# of the OOM crashes on Render's free 512MB tier.
 Pillow>=10.0.0

@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { NoFaceDetectedError, preprocessPhoto } from "@/lib/photoPreprocess";
 
 function CapturePageInner() {
   const router = useRouter();
@@ -15,16 +16,27 @@ function CapturePageInner() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [preparing, setPreparing] = useState(false);
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
     setError(null);
-    setUploading(true);
+    setPreparing(true);
     try {
-      const data = await api.uploadPhoto(file);
+      const { blob, gender, genderConfidence } = await preprocessPhoto(file);
+      setPreparing(false);
+      setUploading(true);
+      const data = await api.uploadPhoto(blob, gender, genderConfidence);
       router.push(`/processing?photoId=${data.photo_id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "خطای ناشناخته");
+      setError(
+        err instanceof NoFaceDetectedError
+          ? err.message
+          : err instanceof Error
+          ? err.message
+          : "خطای ناشناخته"
+      );
+      setPreparing(false);
       setUploading(false);
     }
   }
@@ -41,7 +53,7 @@ function CapturePageInner() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <button
           onClick={() => cameraInputRef.current?.click()}
-          disabled={uploading}
+          disabled={uploading || preparing}
           className={`card flex flex-col items-center gap-3 py-10 transition hover:border-purple ${
             mode === "camera" ? "border-purple" : ""
           }`}
@@ -52,7 +64,7 @@ function CapturePageInner() {
 
         <button
           onClick={() => galleryInputRef.current?.click()}
-          disabled={uploading}
+          disabled={uploading || preparing}
           className={`card flex flex-col items-center gap-3 py-10 transition hover:border-purple ${
             mode === "gallery" ? "border-purple" : ""
           }`}
@@ -78,6 +90,11 @@ function CapturePageInner() {
         onChange={(e) => handleFile(e.target.files?.[0])}
       />
 
+      {preparing && (
+        <p className="mt-6 text-center text-sm text-muted">
+          در حال آماده‌سازی عکس...
+        </p>
+      )}
       {uploading && (
         <p className="mt-6 text-center text-sm text-muted">در حال آپلود...</p>
       )}

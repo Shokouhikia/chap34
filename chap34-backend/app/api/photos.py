@@ -1,33 +1,32 @@
 """
 Photo pipeline endpoints: upload -> detect-gender -> generate -> result.
 
-Gender detection currently defaults to male instead of running the real
-InsightFace model (see the TEMPORARY note on the detect-gender route) —
-it OOM-crashes on Render's free tier. app.services.gender_detection still
-has the real implementation for when hosting with more memory is used.
+Face detection and gender detection run client-side in the browser now
+(see chap34-frontend/lib/photoPreprocess.ts) before the photo is ever
+uploaded, so `upload_photo` accepts an optional client-detected gender and
+`detect_gender` just confirms/echoes it back — it only falls back to a
+male default if the client couldn't supply one (JS blocked/failed).
 
-`generate_photo` is also real for the alignment/crop/background part: it
-straightens the face, crops it to a 3:4 headshot, and replaces the
-background with the color the user picked (see
-app.services.photo_generation). `outfit_type` is NOT yet applied to the
-pixels — swapping actual garments needs a generative model, which is
-future work; the requested value is stored in `ai_meta` so the UI keeps
-working end-to-end.
+`generate_photo` replaces the background via the OpenAI Images API (see
+app.services.photo_generation) and crops the result to an exact 3:4
+headshot. `outfit_type` is NOT yet applied to the pixels — swapping actual
+garments needs a generative model, which is future work; the requested
+value is stored in `ai_meta` so the UI keeps working end-to-end.
 """
 import shutil
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
-from sqlmodel import Session
+from sqlmodel import Session, select
 
-from app.api.deps import get_or_create_anonymous_session
+from app.api.deps import get_current_user, get_or_create_anonymous_session
 from app.core.database import get_session
 from app.models.photo import Gender, Photo, PhotoStatus
 from app.models.session import AnonymousSession
-from app.services.photo_generation import NoFaceError as GenerationNoFaceError
-from app.services.photo_generation import generate_id_photo_fallback
+from app.models.user import User
+from app.services.photo_generation import PhotoGenerationError, generate_id_photo_openai
 
 router = APIRouter(prefix="/api/photo", tags=["photo"])
 
@@ -38,6 +37,8 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 @router.post("/upload")
 def upload_photo(
     file: UploadFile = File(...),
+    client_gender: str | None = Form(None),
+    client_gender_confidence: float | None = Form(None),
     db: Session = Depends(get_session),
     anon_session: AnonymousSession = Depends(get_or_create_anonymous_session),
 ):
@@ -51,10 +52,17 @@ def upload_photo(
     with saved_path.open("wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
+    detected_gender = None
+    if client_gender in (Gender.MALE.value, Gender.FEMALE.value):
+        detected_gender = Gender(client_gender)
+
     photo = Photo(
         session_id=anon_session.id,
         original_file_url=f"/static/uploads/{saved_name}",
         status=PhotoStatus.PENDING,
+        detected_gender=detected_gender,
+        selected_gender=detected_gender,
+        detection_confidence=client_gender_confidence if detected_gender else None,
     )
     db.add(photo)
     db.commit()
@@ -78,15 +86,14 @@ def detect_gender(photo_id: uuid.UUID, db: Session = Depends(get_session)):
     db.add(photo)
     db.commit()
 
-    # TEMPORARY: real InsightFace detection (run_gender_detection) OOM-crashes
-    # on Render's free 512MB tier even after trimming it to the detection+
-    # genderage models only (see face_engine.py, DEPLOY.md). Defaulting to
-    # male until the hosting/memory situation is resolved.
-    detected, confidence = Gender.MALE, 1.0
+    # Gender is normally already known from client-side detection at
+    # upload time (see photoPreprocess.ts). Only fall back to a male
+    # default here if the client couldn't supply one (JS blocked/failed).
+    if photo.detected_gender is None:
+        photo.detected_gender = Gender.MALE
+        photo.selected_gender = Gender.MALE
+        photo.detection_confidence = 1.0
 
-    photo.detected_gender = detected
-    photo.selected_gender = detected  # gender is decided automatically now
-    photo.detection_confidence = confidence
     photo.status = PhotoStatus.DETECTED
     db.add(photo)
     db.commit()
@@ -109,9 +116,9 @@ class GenerateBody(BaseModel):
 def generate_photo(
     photo_id: uuid.UUID, body: GenerateBody, db: Session = Depends(get_session)
 ):
-    """Runs the real align + 3:4 crop + background-replace pipeline.
-    outfit_type is stored but not yet applied to the pixels (see module
-    docstring / task notes)."""
+    """Replaces the background via the OpenAI Images API and crops the
+    result to an exact 3:4 headshot. outfit_type is stored but not yet
+    applied to the pixels (see module docstring / task notes)."""
     photo = db.get(Photo, photo_id)
     if not photo:
         raise HTTPException(status_code=404, detail="عکس یافت نشد")
@@ -128,17 +135,12 @@ def generate_photo(
     result_path = UPLOAD_DIR / result_name
 
     try:
-        generate_id_photo_fallback(str(original_path), str(result_path))
-    except GenerationNoFaceError as exc:
+        generate_id_photo_openai(str(original_path), str(result_path), body.background_color)
+    except PhotoGenerationError as exc:
         photo.status = PhotoStatus.FAILED
         db.add(photo)
         db.commit()
-        raise HTTPException(status_code=422, detail=str(exc))
-    except Exception:
-        photo.status = PhotoStatus.FAILED
-        db.add(photo)
-        db.commit()
-        raise HTTPException(status_code=500, detail="ساخت عکس نهایی با خطا مواجه شد")
+        raise HTTPException(status_code=502, detail=str(exc))
 
     photo.result_file_url = f"/static/uploads/{result_name}"
     photo.status = PhotoStatus.COMPLETED
@@ -146,9 +148,10 @@ def generate_photo(
         "outfit_requested": body.outfit_type,
         "background_applied": body.background_color,
         "note": (
-            "face aligned + cropped 3:4 + background replaced via "
-            "InsightFace/rembg; outfit swap not yet implemented "
-            "(needs a generative model)"
+            "background replaced via the OpenAI Images API, cropped to "
+            "exact 3:4; face/gender detection happened client-side before "
+            "upload; outfit swap not yet implemented (needs a generative "
+            "model)"
         ),
     }
     db.add(photo)
@@ -160,6 +163,20 @@ def generate_photo(
         "status": photo.status,
         "result_photo_url": photo.result_file_url,
     }
+
+
+@router.get("/mine")
+def list_my_photos(
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Backs the "عکس‌های من" tab in the customer account panel. Registered
+    before /{photo_id} so the literal "mine" segment isn't swallowed by it."""
+    return db.exec(
+        select(Photo)
+        .where(Photo.user_id == user.id, Photo.status == PhotoStatus.COMPLETED)
+        .order_by(Photo.created_at.desc())
+    ).all()
 
 
 @router.get("/{photo_id}")
