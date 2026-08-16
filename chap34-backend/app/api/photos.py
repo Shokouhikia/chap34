@@ -7,11 +7,13 @@ uploaded, so `upload_photo` accepts an optional client-detected gender and
 `detect_gender` just confirms/echoes it back — it only falls back to a
 male default if the client couldn't supply one (JS blocked/failed).
 
-`generate_photo` replaces the background via the OpenAI Images API (see
-app.services.photo_generation) and crops the result to an exact 3:4
-headshot. `outfit_type` is NOT yet applied to the pixels — swapping actual
-garments needs a generative model, which is future work; the requested
-value is stored in `ai_meta` so the UI keeps working end-to-end.
+`generate_photo` replaces the background via the admin-configured AI
+provider/model (see app.services.photo_generation - OpenRouter, e.g. Google
+"Nano Banana", is the default; OpenAI is a selectable fallback) and crops
+the result to an exact 3:4 headshot. `outfit_type` is NOT yet applied to
+the pixels — swapping actual garments needs a generative model, which is
+future work; the requested value is stored in `ai_meta` so the UI keeps
+working end-to-end.
 """
 import shutil
 import uuid
@@ -26,7 +28,7 @@ from app.core.database import get_session
 from app.models.photo import Gender, Photo, PhotoStatus
 from app.models.session import AnonymousSession
 from app.models.user import User
-from app.services.photo_generation import PhotoGenerationError, generate_id_photo_openai
+from app.services.photo_generation import PhotoGenerationError, generate_id_photo
 
 router = APIRouter(prefix="/api/photo", tags=["photo"])
 
@@ -116,9 +118,9 @@ class GenerateBody(BaseModel):
 def generate_photo(
     photo_id: uuid.UUID, body: GenerateBody, db: Session = Depends(get_session)
 ):
-    """Replaces the background via the OpenAI Images API and crops the
-    result to an exact 3:4 headshot. outfit_type is stored but not yet
-    applied to the pixels (see module docstring / task notes)."""
+    """Replaces the background via the admin-configured AI provider/model
+    and crops the result to an exact 3:4 headshot. outfit_type is stored
+    but not yet applied to the pixels (see module docstring / task notes)."""
     photo = db.get(Photo, photo_id)
     if not photo:
         raise HTTPException(status_code=404, detail="عکس یافت نشد")
@@ -135,7 +137,7 @@ def generate_photo(
     result_path = UPLOAD_DIR / result_name
 
     try:
-        generate_id_photo_openai(str(original_path), str(result_path), body.background_color)
+        generate_id_photo(str(original_path), str(result_path), body.background_color, db)
     except PhotoGenerationError as exc:
         photo.status = PhotoStatus.FAILED
         db.add(photo)
@@ -148,10 +150,10 @@ def generate_photo(
         "outfit_requested": body.outfit_type,
         "background_applied": body.background_color,
         "note": (
-            "background replaced via the OpenAI Images API, cropped to "
-            "exact 3:4; face/gender detection happened client-side before "
-            "upload; outfit swap not yet implemented (needs a generative "
-            "model)"
+            "background replaced via the admin-configured AI provider/model, "
+            "cropped to exact 3:4; face/gender detection happened "
+            "client-side before upload; outfit swap not yet implemented "
+            "(needs a generative model)"
         ),
     }
     db.add(photo)

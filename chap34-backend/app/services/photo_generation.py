@@ -21,8 +21,16 @@ from pathlib import Path
 
 import httpx
 from PIL import Image
+from sqlmodel import Session
 
 from app.core.config import settings
+from app.models.setting import (
+    DEFAULT_OPENROUTER_MODEL,
+    KEY_AI_PROVIDER,
+    KEY_OPENROUTER_API_KEY,
+    KEY_OPENROUTER_MODEL,
+)
+from app.services import settings_service
 
 BACKGROUND_COLORS = {
     "white": (255, 255, 255),
@@ -39,9 +47,69 @@ OPENAI_IMAGES_EDIT_URL = "https://api.openai.com/v1/images/edits"
 OPENAI_IMAGE_SIZE = "1024x1024"
 OPENAI_IMAGE_QUALITY = "low"
 
+OPENROUTER_IMAGES_URL = "https://openrouter.ai/api/v1/images"
+
 
 class PhotoGenerationError(Exception):
     """Raised when the background-removal pipeline can't produce a result."""
+
+
+def _background_prompt(background_color: str) -> str:
+    color_name = background_color if background_color in BACKGROUND_COLORS else "white"
+    return (
+        f"Replace only the background of this headshot photo with a plain, "
+        f"solid {color_name} background, like a passport/ID photo backdrop. "
+        f"Keep the person, their pose, framing, and clothing completely "
+        f"unchanged - do not alter the subject at all."
+    )
+
+
+def _call_openrouter_background_edit(
+    image_bytes: bytes, background_color: str, api_key: str, model: str
+) -> bytes:
+    """
+    Same contract as `_call_openai_background_edit` but via OpenRouter's
+    unified Image API (https://openrouter.ai/docs/guides/overview/multimodal/image-generation),
+    which fronts many providers/models (Google Gemini "Nano Banana" family,
+    ByteDance Seedance, etc.) behind one request/response shape.
+    """
+    if not api_key:
+        raise PhotoGenerationError("OpenRouter API Key در تنظیمات ادمین تنظیم نشده است")
+
+    b64_input = base64.b64encode(image_bytes).decode("ascii")
+
+    try:
+        response = httpx.post(
+            OPENROUTER_IMAGES_URL,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "prompt": _background_prompt(background_color),
+                "input_references": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{b64_input}"},
+                    }
+                ],
+            },
+            timeout=60.0,
+        )
+    except httpx.HTTPError as exc:
+        raise PhotoGenerationError(f"اتصال به OpenRouter برقرار نشد: {exc}") from exc
+
+    if response.status_code != 200:
+        raise PhotoGenerationError(
+            f"OpenRouter خطا داد ({response.status_code}): {response.text[:500]}"
+        )
+
+    try:
+        b64_data = response.json()["data"][0]["b64_json"]
+        return base64.b64decode(b64_data)
+    except (KeyError, IndexError, ValueError) as exc:
+        raise PhotoGenerationError("پاسخ OpenRouter نامعتبر بود") from exc
 
 
 def _call_openai_background_edit(image_bytes: bytes, background_color: str) -> bytes:
@@ -54,21 +122,13 @@ def _call_openai_background_edit(image_bytes: bytes, background_color: str) -> b
     if not settings.openai_api_key:
         raise PhotoGenerationError("OPENAI_API_KEY تنظیم نشده است")
 
-    color_name = background_color if background_color in BACKGROUND_COLORS else "white"
-    prompt = (
-        f"Replace only the background of this headshot photo with a plain, "
-        f"solid {color_name} background, like a passport/ID photo backdrop. "
-        f"Keep the person, their pose, framing, and clothing completely "
-        f"unchanged - do not alter the subject at all."
-    )
-
     try:
         response = httpx.post(
             OPENAI_IMAGES_EDIT_URL,
             headers={"Authorization": f"Bearer {settings.openai_api_key}"},
             data={
                 "model": "gpt-image-1",
-                "prompt": prompt,
+                "prompt": _background_prompt(background_color),
                 "size": OPENAI_IMAGE_SIZE,
                 "quality": OPENAI_IMAGE_QUALITY,
                 "n": 1,
@@ -108,14 +168,15 @@ def _ensure_exact_3x4(image: Image.Image) -> Image.Image:
         return image.crop((0, top, w, top + new_h))
 
 
-def generate_id_photo_openai(
-    source_path: str, dest_path: str, background_color: str = "white"
+def generate_id_photo(
+    source_path: str, dest_path: str, background_color: str, db: Session
 ) -> None:
     """
     Reads the client-prepped photo at `source_path`, replaces its
-    background via the OpenAI Images API, crops the result to an exact 3:4
-    headshot, and writes it to `dest_path`. Raises PhotoGenerationError on
-    failure.
+    background via the admin-configured AI provider (OpenRouter - "Nano
+    Banana"/Seedance/etc - by default, OpenAI as a fallback), crops the
+    result to an exact 3:4 headshot, and writes it to `dest_path`. Raises
+    PhotoGenerationError on failure.
     """
     try:
         source_image = Image.open(source_path).convert("RGB")
@@ -124,8 +185,15 @@ def generate_id_photo_openai(
 
     source_buffer = BytesIO()
     source_image.save(source_buffer, format="PNG")
+    image_bytes = source_buffer.getvalue()
 
-    result_bytes = _call_openai_background_edit(source_buffer.getvalue(), background_color)
+    provider = settings_service.get_value(db, KEY_AI_PROVIDER) or "openrouter"
+    if provider == "openai":
+        result_bytes = _call_openai_background_edit(image_bytes, background_color)
+    else:
+        api_key = settings_service.get_value(db, KEY_OPENROUTER_API_KEY)
+        model = settings_service.get_value(db, KEY_OPENROUTER_MODEL) or DEFAULT_OPENROUTER_MODEL
+        result_bytes = _call_openrouter_background_edit(image_bytes, background_color, api_key, model)
 
     try:
         result_image = Image.open(BytesIO(result_bytes)).convert("RGB")

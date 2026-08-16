@@ -7,8 +7,11 @@ from app.core.database import get_session
 from app.core.security import hash_password
 from app.models.discount import DiscountCode
 from app.models.setting import (
+    KEY_AI_PROVIDER,
     KEY_BASE_URL,
     KEY_GOOGLE_AI_API_KEY,
+    KEY_OPENROUTER_API_KEY,
+    KEY_OPENROUTER_MODEL,
     KEY_PAPER_MULTIPLIER_GLOSSY,
     KEY_PAPER_MULTIPLIER_MATTE,
     KEY_PRICE_BASE_QTY_12,
@@ -22,6 +25,7 @@ from app.models.setting import (
     KEY_SMS_PROVIDER,
     KEY_SMS_USERNAME,
     KEY_ZARINPAL_MERCHANT_ID,
+    OPENROUTER_MODEL_CHOICES,
     SECRET_KEYS,
 )
 from app.models.staff import StaffAccount, StaffRole
@@ -41,7 +45,13 @@ def get_settings(db: Session = Depends(get_session), _staff: StaffAccount = Depe
             out[f"_has_{key}"] = bool(value)
         else:
             out[key] = value
-    return {"settings": out}
+    return {
+        "settings": out,
+        # Single source of truth for the model dropdown in the admin UI -
+        # keeps the curated OpenRouter model list defined only in
+        # app.models.setting.
+        "openrouter_model_choices": OPENROUTER_MODEL_CHOICES,
+    }
 
 
 class SettingsUpdate(BaseModel):
@@ -60,6 +70,9 @@ class SettingsUpdate(BaseModel):
     paper_multiplier_glossy: str | None = None
     paper_multiplier_matte: str | None = None
     shipping_cost: str | None = None
+    ai_provider: str | None = None
+    openrouter_api_key: str | None = None
+    openrouter_model: str | None = None
 
 
 @router.put("/settings")
@@ -80,6 +93,9 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_session), _s
         KEY_PAPER_MULTIPLIER_GLOSSY: body.paper_multiplier_glossy or "",
         KEY_PAPER_MULTIPLIER_MATTE: body.paper_multiplier_matte or "",
         KEY_SHIPPING_COST: body.shipping_cost or "",
+        KEY_AI_PROVIDER: body.ai_provider or "",
+        KEY_OPENROUTER_API_KEY: body.openrouter_api_key or "",
+        KEY_OPENROUTER_MODEL: body.openrouter_model or "",
     })
     return {"ok": True}
 

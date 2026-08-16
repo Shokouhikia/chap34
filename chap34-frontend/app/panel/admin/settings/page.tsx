@@ -5,6 +5,7 @@ import { panelApi } from "@/lib/panelApi";
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<any>(null);
+  const [modelChoices, setModelChoices] = useState<Record<string, string>>({});
   const [form, setForm] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -15,7 +16,13 @@ export default function AdminSettingsPage() {
   const [newPercent, setNewPercent] = useState("10");
 
   function load() {
-    panelApi.getAdminSettings().then((d) => setSettings(d.settings)).catch(() => {});
+    panelApi
+      .getAdminSettings()
+      .then((d) => {
+        setSettings(d.settings);
+        setModelChoices(d.openrouter_model_choices || {});
+      })
+      .catch(() => {});
     panelApi.listAtelierAccounts().then(setAccounts).catch(() => {});
     panelApi.listDiscountCodes().then(setDiscounts).catch(() => {});
   }
@@ -89,8 +96,39 @@ export default function AdminSettingsPage() {
           <p className="text-xs text-muted">{settings._has_sms_api_key ? `فعلی: ${settings.sms_api_key}` : "هنوز تنظیم نشده"}</p>
         </fieldset>
         <fieldset className="border border-line rounded-md2 p-4 mb-3">
-          <legend className="text-[13.5px] font-extrabold px-2">هوش مصنوعی</legend>
-          <label className="field-label mt-2">Google AI Studio API Key</label>
+          <legend className="text-[13.5px] font-extrabold px-2">هوش مصنوعی (ساخت عکس پرسنلی)</legend>
+
+          <label className="field-label mt-2">سرویس‌دهنده</label>
+          <select
+            defaultValue={settings.ai_provider || "openrouter"}
+            onChange={(e) => update("ai_provider", e.target.value)}
+            className="field-input mb-3"
+          >
+            <option value="openrouter">OpenRouter</option>
+            <option value="openai">OpenAI</option>
+          </select>
+
+          <label className="field-label">مدل OpenRouter</label>
+          <select
+            defaultValue={settings.openrouter_model || Object.keys(modelChoices)[0]}
+            onChange={(e) => update("openrouter_model", e.target.value)}
+            className="field-input mb-1"
+          >
+            {Object.entries(modelChoices).map(([slug, label]) => (
+              <option key={slug} value={slug}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted mb-3">
+            وقتی سرویس‌دهنده OpenRouter باشد استفاده می‌شود. Seedance عمدتاً مدل ویدیوست؛ اگر ادیت عکس رو پشتیبانی نکرد، گزینهٔ نانو بنانا را انتخاب کنید.
+          </p>
+
+          <label className="field-label">OpenRouter API Key</label>
+          <input onChange={(e) => update("openrouter_api_key", e.target.value)} className="field-input mb-1" placeholder="sk-or-v1-..." dir="ltr" />
+          <p className="text-xs text-muted mb-3">{settings._has_openrouter_api_key ? `فعلی: ${settings.openrouter_api_key}` : "هنوز تنظیم نشده"}</p>
+
+          <label className="field-label">Google AI Studio API Key (برای حالت OpenAI استفاده نمی‌شود)</label>
           <input onChange={(e) => update("google_ai_api_key", e.target.value)} className="field-input mb-1" placeholder="کلید API" />
           <p className="text-xs text-muted">{settings._has_google_ai_api_key ? `فعلی: ${settings.google_ai_api_key}` : "هنوز تنظیم نشده"}</p>
         </fieldset>
