@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { panelApi, OrderSummary } from "@/lib/panelApi";
+import OrderPhotoThumb from "@/components/OrderPhotoThumb";
 
 type Shipment = {
   id: string;
@@ -127,6 +128,7 @@ export default function AtelierShipmentsPage() {
                 checked={selected.has(o.id)}
                 onChange={() => toggle(o.id)}
               />
+              <OrderPhotoThumb photoUrl={o.photo_url} alt={o.customer_name} />
               <span className="font-bold text-navy" dir="ltr">
                 {o.order_code}
               </span>

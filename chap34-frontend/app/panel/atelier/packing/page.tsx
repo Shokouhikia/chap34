@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { panelApi, OrderSummary } from "@/lib/panelApi";
+import OrderPhotoThumb from "@/components/OrderPhotoThumb";
 
 type Item = { key: string; label: string };
 type PackOrder = OrderSummary & { packing_checklist: Record<string, boolean> };
@@ -75,11 +76,14 @@ export default function AtelierPackingPage() {
           const allChecked = items.every((i) => o.packing_checklist?.[i.key]);
           return (
             <div key={o.id} className="card">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="font-bold text-navy" dir="ltr">
-                  {o.order_code}
-                </span>
-                <span className="text-sm text-muted">{o.customer_name}</span>
+              <div className="mb-3 flex items-center gap-3">
+                <OrderPhotoThumb photoUrl={o.photo_url} size="md" alt={o.customer_name} />
+                <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                  <span className="font-bold text-navy" dir="ltr">
+                    {o.order_code}
+                  </span>
+                  <span className="truncate text-sm text-muted">{o.customer_name}</span>
+                </div>
               </div>
               <div className="mb-4 space-y-2">
                 {items.map((i) => (

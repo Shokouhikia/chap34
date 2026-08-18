@@ -97,6 +97,8 @@ export type OrderSummary = {
   id: string;
   order_code: string;
   customer_name: string;
+  /** Finished 3x4 photo, null when it hasn't been generated yet. */
+  photo_url: string | null;
   quantity: number;
   size: string;
   fulfillment_status: string;

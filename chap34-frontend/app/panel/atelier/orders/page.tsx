@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { panelApi, OrderSummary, Stage } from "@/lib/panelApi";
+import OrderPhotoThumb from "@/components/OrderPhotoThumb";
 
 const STATUS_LABELS: Record<string, string> = {
   registered: "ثبت‌شده",
@@ -139,6 +140,7 @@ export default function AtelierOrdersPage() {
           <thead className="border-b border-line text-xs text-muted">
             <tr>
               <th className="p-3"></th>
+              <th className="p-3">عکس</th>
               <th className="p-3">کد سفارش</th>
               <th className="p-3">مشتری</th>
               <th className="p-3">تعداد</th>
@@ -156,6 +158,9 @@ export default function AtelierOrdersPage() {
                     checked={selected.has(o.id)}
                     onChange={() => toggle(o.id)}
                   />
+                </td>
+                <td className="p-3">
+                  <OrderPhotoThumb photoUrl={o.photo_url} alt={o.customer_name} />
                 </td>
                 <td className="p-3 font-bold text-navy" dir="ltr">
                   {o.order_code}
@@ -203,7 +208,7 @@ export default function AtelierOrdersPage() {
             ))}
             {orders.length === 0 && !loading && (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-sm text-muted">
+                <td colSpan={8} className="p-8 text-center text-sm text-muted">
                   سفارشی در این مرحله وجود ندارد
                 </td>
               </tr>

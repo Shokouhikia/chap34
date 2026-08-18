@@ -12,11 +12,22 @@ from app.services.fulfillment import customer_name_for
 from app.services.status_mapping import to_atelier_stage
 
 
+def photo_url_for(db: Session, order: Order) -> str | None:
+    """The order's finished photo URL, for thumbnails in the panel grids so
+    staff can eyeball which person an order belongs to. None when the photo
+    row or its generated result is missing (e.g. seeded demo orders)."""
+    from app.models.photo import Photo  # local import mirrors fulfillment.py
+
+    photo = db.get(Photo, order.photo_id)
+    return photo.result_file_url if photo else None
+
+
 def order_summary(db: Session, order: Order) -> dict:
     return {
         "id": str(order.id),
         "order_code": order.order_code,
         "customer_name": customer_name_for(db, order),
+        "photo_url": photo_url_for(db, order),
         "quantity": order.quantity,
         "size": order.size.value,
         "paper_type": order.paper_type.value,
