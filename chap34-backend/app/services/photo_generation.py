@@ -170,13 +170,23 @@ def _ensure_exact_3x4(image: Image.Image) -> Image.Image:
 
 def generate_id_photo(
     source_path: str, dest_path: str, background_color: str, db: Session
-) -> None:
+) -> dict:
     """
-    Reads the client-prepped photo at `source_path`, replaces its
+    Reads the client-prepped photo at `source_path`, tries to replace its
     background via the admin-configured AI provider (OpenRouter - "Nano
     Banana"/Seedance/etc - by default, OpenAI as a fallback), crops the
-    result to an exact 3:4 headshot, and writes it to `dest_path`. Raises
-    PhotoGenerationError on failure.
+    result to an exact 3:4 headshot, and writes it to `dest_path`.
+
+    If the AI call fails for any reason (no API key set, no credit, provider
+    outage, bad response, ...) this does NOT fail the request - it falls
+    back to the plain client-cropped photo as-is so the user's flow always
+    completes with a usable (if unedited) result. The only thing that still
+    raises PhotoGenerationError is a source photo that can't even be read,
+    since there's nothing to fall back to in that case.
+
+    Returns a dict describing what happened, for the caller to record in
+    `Photo.ai_meta`: {"ai_background_replaced": bool, "provider": str,
+    "ai_error": str | None}.
     """
     try:
         source_image = Image.open(source_path).convert("RGB")
@@ -188,19 +198,28 @@ def generate_id_photo(
     image_bytes = source_buffer.getvalue()
 
     provider = settings_service.get_value(db, KEY_AI_PROVIDER) or "openrouter"
-    if provider == "openai":
-        result_bytes = _call_openai_background_edit(image_bytes, background_color)
-    else:
-        api_key = settings_service.get_value(db, KEY_OPENROUTER_API_KEY)
-        model = settings_service.get_value(db, KEY_OPENROUTER_MODEL) or DEFAULT_OPENROUTER_MODEL
-        result_bytes = _call_openrouter_background_edit(image_bytes, background_color, api_key, model)
-
+    result_image = source_image
+    ai_error: str | None = None
     try:
+        if provider == "openai":
+            result_bytes = _call_openai_background_edit(image_bytes, background_color)
+        else:
+            api_key = settings_service.get_value(db, KEY_OPENROUTER_API_KEY)
+            model = settings_service.get_value(db, KEY_OPENROUTER_MODEL) or DEFAULT_OPENROUTER_MODEL
+            result_bytes = _call_openrouter_background_edit(image_bytes, background_color, api_key, model)
         result_image = Image.open(BytesIO(result_bytes)).convert("RGB")
+    except PhotoGenerationError as exc:
+        ai_error = str(exc)
     except Exception as exc:
-        raise PhotoGenerationError("خروجی سرویس پردازش عکس قابل خواندن نیست") from exc
+        ai_error = f"خطای غیرمنتظره در پردازش هوش مصنوعی: {exc}"
 
     final = _ensure_exact_3x4(result_image)
 
     Path(dest_path).parent.mkdir(parents=True, exist_ok=True)
     final.save(dest_path, format="JPEG", quality=92)
+
+    return {
+        "ai_background_replaced": ai_error is None,
+        "provider": provider,
+        "ai_error": ai_error,
+    }

@@ -119,8 +119,11 @@ def generate_photo(
     photo_id: uuid.UUID, body: GenerateBody, db: Session = Depends(get_session)
 ):
     """Replaces the background via the admin-configured AI provider/model
-    and crops the result to an exact 3:4 headshot. outfit_type is stored
-    but not yet applied to the pixels (see module docstring / task notes)."""
+    and crops the result to an exact 3:4 headshot. If the AI call fails for
+    any reason (key not set, no credit, provider outage, ...), falls back
+    to the plain cropped photo instead of failing the request - see
+    generate_id_photo's docstring. outfit_type is stored but not yet
+    applied to the pixels (see module docstring / task notes)."""
     photo = db.get(Photo, photo_id)
     if not photo:
         raise HTTPException(status_code=404, detail="عکس یافت نشد")
@@ -137,7 +140,7 @@ def generate_photo(
     result_path = UPLOAD_DIR / result_name
 
     try:
-        generate_id_photo(str(original_path), str(result_path), body.background_color, db)
+        ai_result = generate_id_photo(str(original_path), str(result_path), body.background_color, db)
     except PhotoGenerationError as exc:
         photo.status = PhotoStatus.FAILED
         db.add(photo)
@@ -149,11 +152,17 @@ def generate_photo(
     photo.ai_meta = {
         "outfit_requested": body.outfit_type,
         "background_applied": body.background_color,
+        "ai_background_replaced": ai_result["ai_background_replaced"],
+        "ai_provider": ai_result["provider"],
+        "ai_error": ai_result["ai_error"],
         "note": (
             "background replaced via the admin-configured AI provider/model, "
             "cropped to exact 3:4; face/gender detection happened "
             "client-side before upload; outfit swap not yet implemented "
             "(needs a generative model)"
+            if ai_result["ai_background_replaced"]
+            else "AI background replacement failed/unavailable - fell back "
+            "to the plain client-cropped photo, cropped to exact 3:4"
         ),
     }
     db.add(photo)
