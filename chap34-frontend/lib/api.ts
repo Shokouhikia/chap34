@@ -26,6 +26,22 @@ export function isLoggedIn(): boolean {
   return !!getAccessToken();
 }
 
+// Render's free tier spins the backend down after ~15min idle; the first
+// request after that can fail at the network level (TypeError, not a real
+// HTTP error) while the container wakes up. One retry after a short wait
+// covers that case instead of surfacing a hard "server unreachable" error.
+const COLD_START_RETRY_DELAY_MS = 5000;
+
+async function fetchWithRetry(url: string, options: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, options);
+  } catch (err) {
+    if (!(err instanceof TypeError)) throw err;
+    await new Promise((resolve) => setTimeout(resolve, COLD_START_RETRY_DELAY_MS));
+    return fetch(url, options);
+  }
+}
+
 async function request(path: string, options: RequestInit = {}) {
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
@@ -38,7 +54,7 @@ async function request(path: string, options: RequestInit = {}) {
   if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
 
   try {
-    const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+    const res = await fetchWithRetry(`${API_URL}${path}`, { ...options, headers });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.detail || `درخواست ناموفق بود (${res.status})`);
@@ -77,7 +93,7 @@ export const api = {
     if (sessionToken) headers["X-Session-Token"] = sessionToken;
 
     try {
-      const res = await fetch(`${API_URL}/api/photo/upload`, {
+      const res = await fetchWithRetry(`${API_URL}/api/photo/upload`, {
         method: "POST",
         body: form,
         headers,
