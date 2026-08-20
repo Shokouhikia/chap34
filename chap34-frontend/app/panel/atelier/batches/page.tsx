@@ -7,6 +7,9 @@ type Batch = {
   id: string;
   code: string;
   sheet_size: string;
+  /** Derived from the batch's orders, which are all the same size/paper. */
+  print_size: string | null;
+  paper_type: string | null;
   status: string;
   order_count: number;
   piece_count: number;
@@ -18,6 +21,16 @@ const BATCH_STATUS: Record<string, string> = {
   queued: "در صف",
   printing: "در حال چاپ",
   printed: "چاپ‌شده",
+};
+
+const PRINT_SIZE_LABEL: Record<string, string> = {
+  "3x4": "۳×۴",
+  "6x8": "۶×۸",
+};
+
+const PAPER_LABEL: Record<string, string> = {
+  glossy: "گلاسه",
+  matte: "مات",
 };
 
 export default function AtelierBatchesPage() {
@@ -76,8 +89,14 @@ export default function AtelierBatchesPage() {
               <Stat label="قطعه" value={b.piece_count} />
               <Stat label="شیت" value={b.sheet_count ?? "—"} />
             </div>
-            <div className="mb-3 text-xs text-muted">
-              سایز شیت: {b.sheet_size === "a4" ? "A4" : "۱۰×۱۵"}
+            <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+              <span>سایز شیت: {b.sheet_size === "a4" ? "A4" : "۱۰×۱۵"}</span>
+              {b.print_size && (
+                <span>سایز چاپ: {PRINT_SIZE_LABEL[b.print_size] || b.print_size}</span>
+              )}
+              {b.paper_type && (
+                <span>کاغذ: {PAPER_LABEL[b.paper_type] || b.paper_type}</span>
+              )}
             </div>
             <div className="flex flex-wrap gap-2">
               {b.status === "queued" && (
@@ -96,13 +115,24 @@ export default function AtelierBatchesPage() {
                   اتمام چاپ
                 </button>
               )}
+              {/* Two separate outputs: photos go on photo paper, labels on
+                  plain/label stock. Both list the orders in the same order so
+                  the nth cut block pairs with the nth label. */}
               <button
                 onClick={() =>
                   panelApi.batchSheets(b.id, "pdf").catch((e) => setError(e.message))
                 }
                 className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-navy"
               >
-                دانلود شیت‌ها (PDF)
+                چاپ عکس‌ها (PDF)
+              </button>
+              <button
+                onClick={() =>
+                  panelApi.batchLabels(b.id).catch((e) => setError(e.message))
+                }
+                className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-navy"
+              >
+                چاپ آدرس‌ها (PDF)
               </button>
             </div>
           </div>

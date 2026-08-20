@@ -15,12 +15,17 @@ const NAV_LINKS: { label: string; href?: string }[] = [
   { label: "تماس با ما" },
 ];
 
-// The atelier + operations panels are full-bleed staff apps with their own
-// top bars, so they opt out of the customer chrome (logo header + narrow
-// centered main). Everything else keeps the customer shell.
+// The staff panel is a full-bleed desktop app with its own sidebar, so it
+// opts out of the customer chrome (logo header + narrow centered main).
+// Everything else keeps the customer shell.
+//
+// This used to test for "/atelier" and "/ops", which stopped matching when
+// the panels moved under "/panel/..." - the result was the customer shell
+// wrapping the panel and its max-w-3xl clamping the panel's own width, which
+// is what made the staff app feel cramped/mobile on desktop.
 export default function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isPanel = pathname?.startsWith("/atelier") || pathname?.startsWith("/ops");
+  const isPanel = pathname?.startsWith("/panel");
   const isHome = pathname === "/";
 
   if (isPanel) {

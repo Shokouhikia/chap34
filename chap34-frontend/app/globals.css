@@ -43,6 +43,39 @@ body {
   @apply inline-block rounded-full bg-purple-tint px-2 py-1 text-[10.5px] sm:text-[11px] font-bold text-purple-deep;
 }
 
+/* Staff panel. These two were already used across the admin pages but had
+   never been defined, so they silently rendered as nothing. */
+.field-label {
+  @apply mb-1 block text-xs font-bold text-navy;
+}
+
+.font-mono2 {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* The status chip repeated inline on every panel page. */
+.pill-status {
+  @apply inline-block whitespace-nowrap rounded-full bg-purple-tint px-2 py-1 text-xs font-bold text-purple-deep;
+}
+
+/* Dense table shared by the panel grids. */
+.table-panel {
+  @apply w-full text-right text-[13px];
+}
+
+.table-panel thead th {
+  @apply whitespace-nowrap border-b border-line px-2.5 py-2 text-xs font-bold text-muted;
+}
+
+.table-panel tbody td {
+  @apply px-2.5 py-1.5 align-middle;
+}
+
+.table-panel tbody tr {
+  @apply border-b border-line/60 hover:bg-purple-tint/40;
+}
+
 @keyframes fadeUp {
   from {
     opacity: 0;

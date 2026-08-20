@@ -97,10 +97,12 @@ export type OrderSummary = {
   id: string;
   order_code: string;
   customer_name: string;
-  /** Finished 3x4 photo, null when it hasn't been generated yet. */
+  /** Finished photo, null when it hasn't been generated yet. */
   photo_url: string | null;
   quantity: number;
+  /** The size the customer ordered: "3x4" or "6x8". */
   size: string;
+  paper_type: string;
   fulfillment_status: string;
   atelier_stage: string;
   tracking_code: string | null;
@@ -108,6 +110,36 @@ export type OrderSummary = {
   shipment_id: string | null;
   created_at: string;
 };
+
+/** A row of the order report - OrderSummary plus the address/contact fields
+ *  the atelier needs for follow-up. */
+export type ReportRow = OrderSummary & {
+  phone: string;
+  account_phone: string;
+  province: string;
+  city: string;
+  full_address: string;
+  postal_code: string;
+  total_price: number;
+};
+
+export type ReportFilters = {
+  phone?: string;
+  name?: string;
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+};
+
+function reportQuery(filters: ReportFilters): URLSearchParams {
+  const q = new URLSearchParams();
+  if (filters.phone) q.set("phone", filters.phone);
+  if (filters.name) q.set("name", filters.name);
+  if (filters.status && filters.status !== "all") q.set("status", filters.status);
+  if (filters.date_from) q.set("date_from", filters.date_from);
+  if (filters.date_to) q.set("date_to", filters.date_to);
+  return q;
+}
 
 export type Stage = { key: string; label: string; count: number };
 
@@ -135,11 +167,17 @@ export const panelApi = {
       total: number;
     }>,
 
-  listOrders: (opts: { search?: string; status?: string; page?: number }) => {
+  listOrders: (opts: {
+    search?: string;
+    status?: string;
+    page?: number;
+    page_size?: number;
+  }) => {
     const q = new URLSearchParams();
     if (opts.search) q.set("search", opts.search);
     if (opts.status) q.set("status", opts.status);
     q.set("page", String(opts.page || 1));
+    if (opts.page_size) q.set("page_size", String(opts.page_size));
     return request(`/api/ops/orders?${q.toString()}`) as Promise<{
       total: number;
       page: number;
@@ -148,11 +186,44 @@ export const panelApi = {
     }>;
   },
 
-  createBatch: (order_ids: string[], sheet_size: string) =>
+  /** Full order report with follow-up filters. */
+  orderReport: (filters: ReportFilters, page = 1, page_size = 50) => {
+    const q = reportQuery(filters);
+    q.set("page", String(page));
+    q.set("page_size", String(page_size));
+    return request(`/api/ops/orders/report?${q.toString()}`) as Promise<{
+      total: number;
+      page: number;
+      page_size: number;
+      orders: ReportRow[];
+    }>;
+  },
+
+  /** Downloads the report as a CSV (UTF-8 with BOM, so Excel reads Persian).
+   *  Goes through fetch rather than a plain link so the auth header is sent. */
+  orderReportCsv: async (filters: ReportFilters) => {
+    const token = getPanelToken();
+    const res = await fetch(
+      `${API_URL}/api/ops/orders/report.csv?${reportQuery(filters).toString()}`,
+      { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+    );
+    if (!res.ok) throw new Error("دریافت خروجی اکسل ناموفق بود");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "orders-report.csv";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  },
+
+  createBatch: (order_ids: string[], sheet_size?: string) =>
     request("/api/ops/batches", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ order_ids, sheet_size }),
+      // sheet_size omitted => backend picks the cheapest paper for the print
+      // size (6x8 needs A4; on 10x15 only one piece fits per sheet).
+      body: JSON.stringify(sheet_size ? { order_ids, sheet_size } : { order_ids }),
     }),
 
   listBatches: () => request("/api/ops/batches"),
@@ -163,6 +234,8 @@ export const panelApi = {
     request(`/api/ops/batches/${id}/mark-printed`, { method: "POST" }),
   batchSheets: (id: string, format: "png" | "pdf" = "pdf") =>
     openFile(`/api/ops/batches/${id}/sheets?format=${format}`),
+  /** Labels for every order in the batch, in the same order as the sheets. */
+  batchLabels: (id: string) => openFile(`/api/ops/batches/${id}/labels?format=pdf`),
 
   packingTemplate: () => request("/api/ops/packing/checklist-template"),
   packingPending: () => request("/api/ops/packing/pending"),
