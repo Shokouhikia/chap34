@@ -23,6 +23,7 @@ from app.models.address import Address
 from app.models.discount import DiscountCode
 from app.models.order import Order, OrderStatus, OrderStatusHistory, PaperType, PrintSize
 from app.models.payment import Payment, PaymentGateway, PaymentStatus
+from app.models.photo import Photo
 from app.models.print_job import PrintJob
 from app.models.user import User
 from app.services.codes import next_order_code
@@ -239,6 +240,7 @@ def list_my_orders(
     result = []
     for order in orders:
         address = db.get(Address, order.address_id)
+        photo = db.get(Photo, order.photo_id)
         result.append(
             {
                 "id": order.id,
@@ -250,6 +252,7 @@ def list_my_orders(
                 "total_price": order.total_price,
                 "tracking_code": order.tracking_code,
                 "created_at": order.created_at,
+                "photo_url": photo.result_file_url if photo else None,
                 "address": (
                     {
                         "full_name": address.full_name,

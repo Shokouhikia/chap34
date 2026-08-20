@@ -2,12 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import {
-  ORDER_STATUS_LABELS,
-  ORDER_STATUS_SEQUENCE,
-  userApi,
-  type UserOrder,
-} from "@/lib/userApi";
+import { api } from "@/lib/api";
+import { ORDER_STATUS_LABELS, userApi, type UserOrder } from "@/lib/userApi";
 
 const SIZE_LABEL: Record<string, string> = { "3x4": "۳×۴", "6x8": "۶×۸" };
 const PAPER_LABEL: Record<string, string> = { glossy: "چاپ براق (گلاسه)", matte: "چاپ مات" };
@@ -15,7 +11,6 @@ const toman = (n: number) => n.toLocaleString("fa-IR");
 
 function OrderCard({ order }: { order: UserOrder }) {
   const [open, setOpen] = useState(false);
-  const doneIndex = ORDER_STATUS_SEQUENCE.indexOf(order.status);
   const isCancelled = order.status === "cancelled";
 
   return (
@@ -24,13 +19,24 @@ function OrderCard({ order }: { order: UserOrder }) {
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between text-right"
       >
-        <div>
-          <span className="block text-sm font-extrabold text-navy" dir="ltr">
-            {order.order_code}
-          </span>
-          <span className="mt-1 block text-xs text-muted">
-            {new Date(order.created_at).toLocaleDateString("fa-IR")}
-          </span>
+        <div className="flex items-center gap-3">
+          {order.photo_url && (
+            <div className="h-11 w-9 shrink-0 overflow-hidden rounded-lg border border-line bg-purple-tint/40">
+              <img
+                src={api.fileUrl(order.photo_url)}
+                alt="عکس سفارش"
+                className="h-full w-full object-cover"
+              />
+            </div>
+          )}
+          <div>
+            <span className="block text-sm font-extrabold text-navy" dir="ltr">
+              {order.order_code}
+            </span>
+            <span className="mt-1 block text-xs text-muted">
+              {new Date(order.created_at).toLocaleDateString("fa-IR")}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <span
@@ -52,27 +58,6 @@ function OrderCard({ order }: { order: UserOrder }) {
 
       {open && (
         <div className="mt-5 border-t border-line pt-5">
-          {!isCancelled && (
-            <div className="relative mb-6 space-y-5 border-r-2 border-line pr-4">
-              {ORDER_STATUS_SEQUENCE.map((status, i) => {
-                const done = i <= doneIndex;
-                const current = i === doneIndex;
-                return (
-                  <div key={status} className="relative">
-                    <span
-                      className={`absolute -right-[22px] top-0.5 h-3.5 w-3.5 rounded-full ring-4 ring-white ${
-                        current ? "bg-purple" : done ? "bg-success" : "bg-line"
-                      }`}
-                    />
-                    <b className={`block text-xs ${done ? "text-navy" : "text-muted"}`}>
-                      {ORDER_STATUS_LABELS[status]}
-                    </b>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div>
               <span className="block text-muted">سایز</span>
@@ -120,13 +105,24 @@ function OrderCard({ order }: { order: UserOrder }) {
 
 export default function OrdersTab() {
   const [orders, setOrders] = useState<UserOrder[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    userApi.getMyOrders().then(setOrders);
+    userApi
+      .getMyOrders()
+      .then(setOrders)
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "خطای ناشناخته");
+        setOrders([]);
+      });
   }, []);
 
   if (orders === null) {
     return <p className="text-center text-sm text-muted">در حال بارگذاری...</p>;
+  }
+
+  if (error) {
+    return <p className="text-center text-sm font-bold text-red-500">{error}</p>;
   }
 
   if (orders.length === 0) {

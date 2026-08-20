@@ -2,17 +2,29 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 import { userApi, type UserPhoto } from "@/lib/userApi";
 
 export default function PhotosTab() {
   const [photos, setPhotos] = useState<UserPhoto[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    userApi.getMyPhotos().then(setPhotos);
+    userApi
+      .getMyPhotos()
+      .then(setPhotos)
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "خطای ناشناخته");
+        setPhotos([]);
+      });
   }, []);
 
   if (photos === null) {
     return <p className="text-center text-sm text-muted">در حال بارگذاری...</p>;
+  }
+
+  if (error) {
+    return <p className="text-center text-sm font-bold text-red-500">{error}</p>;
   }
 
   if (photos.length === 0) {
@@ -32,13 +44,13 @@ export default function PhotosTab() {
         <div key={photo.id} className="overflow-hidden rounded-2xl border border-line bg-white">
           <div className="aspect-[3/4] overflow-hidden bg-purple-tint/40">
             <img
-              src={photo.result_file_url}
+              src={api.fileUrl(photo.result_file_url)}
               alt="عکس پرسنلی"
               className="h-full w-full object-cover"
             />
           </div>
           <a
-            href={photo.result_file_url}
+            href={api.fileUrl(photo.result_file_url)}
             download
             className="flex items-center justify-center gap-1.5 border-t border-line py-2.5 text-xs font-bold text-purple-deep transition hover:bg-purple-tint"
           >

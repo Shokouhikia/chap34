@@ -55,6 +55,15 @@ async function request(path: string, options: RequestInit = {}) {
 
   try {
     const res = await fetchWithRetry(`${API_URL}${path}`, { ...options, headers });
+    if (res.status === 401 && accessToken) {
+      // Customer JWTs expire after 12h (see security.py) - a stale token
+      // left in localStorage would otherwise fail silently forever.
+      clearAccessToken();
+      if (typeof window !== "undefined") {
+        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+      }
+      throw new Error("نشست شما منقضی شده است، دوباره وارد شوید");
+    }
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.detail || `درخواست ناموفق بود (${res.status})`);

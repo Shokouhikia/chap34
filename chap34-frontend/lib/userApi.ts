@@ -31,16 +31,6 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   cancelled: "لغو شده",
 };
 
-// Progress order for the in-card stepper; "cancelled" is shown as a plain badge instead.
-export const ORDER_STATUS_SEQUENCE: OrderStatus[] = [
-  "created",
-  "paid",
-  "preparing",
-  "printed",
-  "shipped",
-  "delivered",
-];
-
 export type UserOrder = {
   id: string;
   order_code: string;
@@ -51,6 +41,7 @@ export type UserOrder = {
   total_price: number;
   tracking_code: string | null;
   created_at: string;
+  photo_url: string | null;
   address: {
     full_name: string;
     province: string;
