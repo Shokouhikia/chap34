@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from pathlib import Path
+from io import BytesIO
 
 from fastapi import HTTPException
 from PIL import Image
@@ -22,22 +22,16 @@ from app.models.address import Address
 from app.models.order import FulfillmentStatus, Order
 from app.services.sheet_layout import SheetOrder
 
-# app/services/ -> app/ -> app/static
-_STATIC_ROOT = Path(__file__).resolve().parent.parent / "static"
 
-
-def load_photo_image(result_file_url: str | None) -> Image.Image | None:
-    """Load a finished photo off disk from its `/static/...` URL. Returns None
-    (so the sheet renders a placeholder) if the file is missing - the demo's
-    seed orders may not have a real generated image."""
-    if not result_file_url:
-        return None
-    rel = result_file_url.removeprefix("/static/").lstrip("/")
-    path = _STATIC_ROOT / rel
-    if not path.exists():
+def load_photo_image(photo: "Photo | None") -> Image.Image | None:
+    """Load a finished photo from its DB-stored bytes (see Photo model
+    docstring - image data lives in Postgres, not local disk). Returns None
+    (so the sheet renders a placeholder) if there's no photo or no result
+    data yet - the demo's seed orders may not have a real generated image."""
+    if not photo or not photo.result_file_data:
         return None
     try:
-        img = Image.open(path)
+        img = Image.open(BytesIO(photo.result_file_data))
         img.load()
         return img
     except Exception:
@@ -49,12 +43,13 @@ def customer_name_for(db: Session, order: Order) -> str:
     return address.full_name if address else "—"
 
 
-def to_sheet_order(db: Session, order: Order, photo_result_url: str | None) -> SheetOrder:
+def to_sheet_order(db: Session, order: Order, photo: "Photo | None") -> SheetOrder:
     return SheetOrder(
         order_code=order.order_code,
         customer_name=customer_name_for(db, order),
         quantity=order.quantity,
-        photo=load_photo_image(photo_result_url),
+        photo=load_photo_image(photo),
+        size=order.size,
     )
 
 
@@ -67,7 +62,7 @@ def build_sheet_orders(db: Session, orders: list[Order]) -> list[SheetOrder]:
     result: list[SheetOrder] = []
     for order in orders:
         photo = db.get(Photo, order.photo_id)
-        result.append(to_sheet_order(db, order, photo.result_file_url if photo else None))
+        result.append(to_sheet_order(db, order, photo))
     return result
 
 

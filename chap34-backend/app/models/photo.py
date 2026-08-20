@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 
 from sqlmodel import Field, SQLModel
-from sqlalchemy import Column
+from sqlalchemy import Column, LargeBinary
 from sqlalchemy.dialects.postgresql import JSONB
 
 
@@ -31,6 +31,12 @@ class Photo(SQLModel, table=True):
     the whole lifetime of the photo so the user can go back to
     genderSettings and re-generate with different settings without
     re-uploading.
+
+    Image bytes live in Postgres (original_file_data/result_file_data), not
+    on local disk - Render's free-tier disk is wiped on every deploy, which
+    silently orphaned every photo (and made print sheets fall back to a
+    blank placeholder). *_file_url stores the API path that serves those
+    bytes (/api/photo/{id}/original|result), not a static file path.
     """
     __tablename__ = "photos"
 
@@ -41,6 +47,8 @@ class Photo(SQLModel, table=True):
 
     original_file_url: str
     result_file_url: str | None = None
+    original_file_data: bytes | None = Field(default=None, sa_column=Column(LargeBinary))
+    result_file_data: bytes | None = Field(default=None, sa_column=Column(LargeBinary))
 
     status: PhotoStatus = Field(default=PhotoStatus.PENDING)
 

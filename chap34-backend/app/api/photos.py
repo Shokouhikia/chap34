@@ -15,11 +15,9 @@ the pixels — swapping actual garments needs a generative model, which is
 future work; the requested value is stored in `ai_meta` so the UI keeps
 working end-to-end.
 """
-import shutil
 import uuid
-from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -31,9 +29,6 @@ from app.models.user import User
 from app.services.photo_generation import PhotoGenerationError, generate_id_photo
 
 router = APIRouter(prefix="/api/photo", tags=["photo"])
-
-UPLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @router.post("/upload")
@@ -47,20 +42,18 @@ def upload_photo(
     if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
         raise HTTPException(status_code=400, detail="فرمت عکس پشتیبانی نمی‌شود")
 
-    ext = Path(file.filename or "photo.jpg").suffix or ".jpg"
-    saved_name = f"{uuid.uuid4().hex}{ext}"
-    saved_path = UPLOAD_DIR / saved_name
-
-    with saved_path.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    file_bytes = file.file.read()
 
     detected_gender = None
     if client_gender in (Gender.MALE.value, Gender.FEMALE.value):
         detected_gender = Gender(client_gender)
 
+    photo_id = uuid.uuid4()
     photo = Photo(
+        id=photo_id,
         session_id=anon_session.id,
-        original_file_url=f"/static/uploads/{saved_name}",
+        original_file_url=f"/api/photo/{photo_id}/original",
+        original_file_data=file_bytes,
         status=PhotoStatus.PENDING,
         detected_gender=detected_gender,
         selected_gender=detected_gender,
@@ -128,6 +121,9 @@ def generate_photo(
     if not photo:
         raise HTTPException(status_code=404, detail="عکس یافت نشد")
 
+    if not photo.original_file_data:
+        raise HTTPException(status_code=404, detail="فایل اصلی عکس یافت نشد")
+
     photo.selected_gender = body.gender
     photo.outfit_type = body.outfit_type
     photo.background_color = body.background_color
@@ -135,19 +131,16 @@ def generate_photo(
     db.add(photo)
     db.commit()
 
-    original_path = UPLOAD_DIR / Path(photo.original_file_url).name
-    result_name = f"result_{uuid.uuid4().hex}.jpg"
-    result_path = UPLOAD_DIR / result_name
-
     try:
-        ai_result = generate_id_photo(str(original_path), str(result_path), body.background_color, db)
+        result_bytes, ai_result = generate_id_photo(photo.original_file_data, body.background_color, db)
     except PhotoGenerationError as exc:
         photo.status = PhotoStatus.FAILED
         db.add(photo)
         db.commit()
         raise HTTPException(status_code=502, detail=str(exc))
 
-    photo.result_file_url = f"/static/uploads/{result_name}"
+    photo.result_file_data = result_bytes
+    photo.result_file_url = f"/api/photo/{photo.id}/result"
     photo.status = PhotoStatus.COMPLETED
     photo.ai_meta = {
         "outfit_requested": body.outfit_type,
@@ -182,17 +175,49 @@ def list_my_photos(
     user: User = Depends(get_current_user),
 ):
     """Backs the "عکس‌های من" tab in the customer account panel. Registered
-    before /{photo_id} so the literal "mine" segment isn't swallowed by it."""
-    return db.exec(
+    before /{photo_id} so the literal "mine" segment isn't swallowed by it.
+    Returns an explicit shape (not the raw Photo row) so the binary
+    original_file_data/result_file_data columns never hit the wire here."""
+    photos = db.exec(
         select(Photo)
         .where(Photo.user_id == user.id, Photo.status == PhotoStatus.COMPLETED)
         .order_by(Photo.created_at.desc())
     ).all()
+    return [
+        {"id": p.id, "result_file_url": p.result_file_url, "created_at": p.created_at}
+        for p in photos
+    ]
+
+
+@router.get("/{photo_id}/original")
+def get_photo_original(photo_id: uuid.UUID, db: Session = Depends(get_session)):
+    photo = db.get(Photo, photo_id)
+    if not photo or not photo.original_file_data:
+        raise HTTPException(status_code=404, detail="عکس یافت نشد")
+    return Response(content=photo.original_file_data, media_type="image/jpeg")
+
+
+@router.get("/{photo_id}/result")
+def get_photo_result(photo_id: uuid.UUID, db: Session = Depends(get_session)):
+    photo = db.get(Photo, photo_id)
+    if not photo or not photo.result_file_data:
+        raise HTTPException(status_code=404, detail="عکس یافت نشد")
+    return Response(content=photo.result_file_data, media_type="image/jpeg")
 
 
 @router.get("/{photo_id}")
 def get_photo(photo_id: uuid.UUID, db: Session = Depends(get_session)):
+    """Used by both /result (needs result_file_url/status) and
+    /gender-settings (needs original_file_url/detected_gender) - returns an
+    explicit shape rather than the raw Photo row so the binary
+    original_file_data/result_file_data columns never hit the wire here."""
     photo = db.get(Photo, photo_id)
     if not photo:
         raise HTTPException(status_code=404, detail="عکس یافت نشد")
-    return photo
+    return {
+        "id": photo.id,
+        "status": photo.status,
+        "original_file_url": photo.original_file_url,
+        "result_file_url": photo.result_file_url,
+        "detected_gender": photo.detected_gender,
+    }

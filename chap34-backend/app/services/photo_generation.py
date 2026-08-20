@@ -17,7 +17,6 @@ try-on); this module only handles background replacement.
 """
 import base64
 from io import BytesIO
-from pathlib import Path
 
 import httpx
 from PIL import Image
@@ -169,13 +168,15 @@ def _ensure_exact_3x4(image: Image.Image) -> Image.Image:
 
 
 def generate_id_photo(
-    source_path: str, dest_path: str, background_color: str, db: Session
-) -> dict:
+    source_bytes: bytes, background_color: str, db: Session
+) -> tuple[bytes, dict]:
     """
-    Reads the client-prepped photo at `source_path`, tries to replace its
+    Takes the client-prepped photo's raw bytes, tries to replace its
     background via the admin-configured AI provider (OpenRouter - "Nano
-    Banana"/Seedance/etc - by default, OpenAI as a fallback), crops the
-    result to an exact 3:4 headshot, and writes it to `dest_path`.
+    Banana"/Seedance/etc - by default, OpenAI as a fallback), and crops the
+    result to an exact 3:4 headshot. Returns the final JPEG bytes for the
+    caller to store (in Postgres, not local disk - see Photo model
+    docstring) alongside a dict describing what happened.
 
     If the AI call fails for any reason (no API key set, no credit, provider
     outage, bad response, ...) this does NOT fail the request - it falls
@@ -184,12 +185,11 @@ def generate_id_photo(
     raises PhotoGenerationError is a source photo that can't even be read,
     since there's nothing to fall back to in that case.
 
-    Returns a dict describing what happened, for the caller to record in
-    `Photo.ai_meta`: {"ai_background_replaced": bool, "provider": str,
-    "ai_error": str | None}.
+    The dict is for the caller to record in `Photo.ai_meta`:
+    {"ai_background_replaced": bool, "provider": str, "ai_error": str | None}.
     """
     try:
-        source_image = Image.open(source_path).convert("RGB")
+        source_image = Image.open(BytesIO(source_bytes)).convert("RGB")
     except Exception as exc:
         raise PhotoGenerationError("تصویر قابل خواندن نیست") from exc
 
@@ -215,10 +215,10 @@ def generate_id_photo(
 
     final = _ensure_exact_3x4(result_image)
 
-    Path(dest_path).parent.mkdir(parents=True, exist_ok=True)
-    final.save(dest_path, format="JPEG", quality=92)
+    dest_buffer = BytesIO()
+    final.save(dest_buffer, format="JPEG", quality=92)
 
-    return {
+    return dest_buffer.getvalue(), {
         "ai_background_replaced": ai_error is None,
         "provider": provider,
         "ai_error": ai_error,
