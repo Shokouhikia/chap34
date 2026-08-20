@@ -46,6 +46,26 @@ def get_current_user(
     return user
 
 
+def get_optional_current_user(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_session),
+) -> User | None:
+    """Same as get_current_user but returns None instead of 401ing when
+    there's no/invalid token, so one endpoint can serve both anonymous and
+    already-logged-in customers. Used by upload_photo so a photo uploaded by
+    an already-authenticated user (e.g. the checkout-phone auto-skip for
+    returning customers - see checkout/phone/page.tsx) gets user_id set
+    immediately, instead of relying solely on the anonymous-session-to-user
+    linking that only happens during a fresh verify-otp call."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    token = authorization.removeprefix("Bearer ").strip()
+    payload = decode_token(token)
+    if not payload or payload.get("type") != "customer":
+        return None
+    return db.get(User, uuid.UUID(payload["sub"]))
+
+
 def require_staff_role(role: StaffRole):
     def dependency(
         authorization: str | None = Header(default=None),

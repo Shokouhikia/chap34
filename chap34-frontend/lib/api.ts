@@ -100,6 +100,8 @@ export const api = {
     const headers: Record<string, string> = {};
     const sessionToken = getSessionToken();
     if (sessionToken) headers["X-Session-Token"] = sessionToken;
+    const accessToken = getAccessToken();
+    if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
 
     try {
       const res = await fetchWithRetry(`${API_URL}/api/photo/upload`, {

@@ -21,7 +21,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from app.api.deps import get_current_user, get_or_create_anonymous_session
+from app.api.deps import get_current_user, get_optional_current_user, get_or_create_anonymous_session
 from app.core.database import get_session
 from app.models.photo import Gender, Photo, PhotoStatus
 from app.models.session import AnonymousSession
@@ -38,6 +38,7 @@ def upload_photo(
     client_gender_confidence: float | None = Form(None),
     db: Session = Depends(get_session),
     anon_session: AnonymousSession = Depends(get_or_create_anonymous_session),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
         raise HTTPException(status_code=400, detail="فرمت عکس پشتیبانی نمی‌شود")
@@ -52,6 +53,7 @@ def upload_photo(
     photo = Photo(
         id=photo_id,
         session_id=anon_session.id,
+        user_id=current_user.id if current_user else None,
         original_file_url=f"/api/photo/{photo_id}/original",
         original_file_data=file_bytes,
         status=PhotoStatus.PENDING,
