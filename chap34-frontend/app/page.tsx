@@ -4,41 +4,15 @@ import { LANDING_IMAGES } from "@/lib/assets";
 import {
   IconAward,
   IconCheck,
-  IconDistance,
   IconDownload,
   IconInstagram,
   IconPlay,
-  IconPosture,
   IconPrinter,
   IconShield,
   IconSparkles,
-  IconSun,
-  IconTelegram,
   IconTruck,
   IconUpload,
-  IconWhatsapp,
 } from "@/components/icons";
-
-const TIPS = [
-  {
-    n: "۰۱",
-    title: "فاصله مناسب از دوربین",
-    text: "دوربین جلو رو ۴۰ تا ۵۰ سانتی‌متر از صورتت فاصله بده. اگه از دوربین پشت گوشی استفاده می‌کنی، این فاصله رو به ۱ تا ۲ متر برسون.",
-    icon: IconDistance,
-  },
-  {
-    n: "۰۲",
-    title: "سر و بدن رو صاف نگه دار",
-    text: "مستقیم به دوربین نگاه کن و از حالت پرتره یا اریب پرهیز کن. برای عکس پرسنلی، زاویه‌دار گرفتن عکس قابل قبول نیست.",
-    icon: IconPosture,
-  },
-  {
-    n: "۰۳",
-    title: "نور یکنواخت داشته باش",
-    text: "کنار یک پنجره در روز نوردار عکس بگیر. سایه روی صورت یا پس‌زمینه باعث می‌شه پردازش کیفیت پایین‌تری داشته باشه.",
-    icon: IconSun,
-  },
-];
 
 const STEPS = [
   {
@@ -90,23 +64,6 @@ const TRUST_BAR = [
   },
 ];
 
-const FOOTER_QUICK_LINKS: { label: string; href?: string }[] = [
-  { label: "خانه", href: "/" },
-  { label: "سفارش چاپ", href: "/capture" },
-  { label: "قیمت‌ها" },
-  { label: "سوالات متداول" },
-];
-
-const FOOTER_ABOUT_LINKS = ["دربارهٔ Chap34", "بلاگ", "تماس با ما"];
-
-const FOOTER_SUPPORT_LINKS = ["سوالات متداول", "راهنمای استفاده"];
-
-const SOCIALS = [
-  { label: "اینستاگرام", icon: IconInstagram },
-  { label: "تلگرام", icon: IconTelegram },
-  { label: "واتس‌اپ", icon: IconWhatsapp },
-];
-
 export default function HomePage() {
   return (
     <div className="max-w-5xl mx-auto px-5 sm:px-6">
@@ -118,8 +75,9 @@ export default function HomePage() {
             <span className="text-purple-deep">۳×۴</span> تحویل بگیر
           </h1>
           <p className="mb-7 max-w-md text-[15px] leading-relaxed text-muted sm:text-base">
-            عکست رو آپلود کن یا با دوربین بگیر؛ هوش مصنوعی عکس رو به یک عکس
-            پرسنلی استاندارد تبدیل می‌کنه.
+            بدون نیاز به رفتن به آتلیه، عکست رو آپلود کن یا با دوربین بگیر؛
+            هوش مصنوعی عکس رو به یک عکس پرسنلی حرفه‌ای و استاندارد ۳×۴
+            تبدیل می‌کنه.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <Link href="/capture" className="btn-primary">
@@ -134,29 +92,6 @@ export default function HomePage() {
 
         <div className="animate-fade-up" style={{ animationDelay: "0.12s" }}>
           <HeroVisual />
-        </div>
-      </section>
-
-      <section className="border-t border-line py-12 sm:py-16">
-        <h2 className="mb-2 text-center text-2xl font-extrabold text-navy">
-          چطور یک سلفی خوب بگیریم؟
-        </h2>
-        <p className="mx-auto mb-10 max-w-md text-center text-muted">
-          این چند نکته رو رعایت کن تا پردازش هوش مصنوعی بهترین نتیجه رو بده.
-        </p>
-        <div className="grid gap-5 sm:gap-6 md:grid-cols-3">
-          {TIPS.map((tip) => (
-            <div
-              key={tip.n}
-              className="card transition hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-tint text-purple-deep">
-                <tip.icon className="h-5 w-5" />
-              </span>
-              <h3 className="mb-1.5 text-[15.5px] font-extrabold">{tip.title}</h3>
-              <p className="text-[13.5px] leading-relaxed text-muted">{tip.text}</p>
-            </div>
-          ))}
         </div>
       </section>
 
@@ -231,67 +166,21 @@ export default function HomePage() {
       </section>
 
       <footer className="mt-6 border-t border-line py-12">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-4 sm:gap-8">
-          <div className="col-span-2 sm:col-span-1">
-            <span className="text-lg font-extrabold text-navy">Chap34</span>
-            <p className="mt-2 max-w-[220px] text-[13px] leading-relaxed text-muted">
-              سرویس ساخت عکس پرسنلی استاندارد ۳×۴ با هوش مصنوعی و امکان سفارش
-              چاپ.
-            </p>
-            <div className="mt-4 flex items-center gap-2">
-              {SOCIALS.map((s) => (
-                <span
-                  key={s.label}
-                  aria-label={s.label}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-tint text-purple-deep"
-                >
-                  <s.icon className="h-4 w-4" />
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="mb-3 text-[13px] font-extrabold text-navy">دسترسی سریع</h3>
-            <ul className="flex flex-col gap-2 text-[13px] text-muted">
-              {FOOTER_QUICK_LINKS.map((item) =>
-                item.href ? (
-                  <li key={item.label}>
-                    <Link href={item.href} className="transition hover:text-navy">
-                      {item.label}
-                    </Link>
-                  </li>
-                ) : (
-                  <li key={item.label} className="cursor-default">
-                    {item.label}
-                  </li>
-                )
-              )}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="mb-3 text-[13px] font-extrabold text-navy">درباره ما</h3>
-            <ul className="flex flex-col gap-2 text-[13px] text-muted">
-              {FOOTER_ABOUT_LINKS.map((label) => (
-                <li key={label} className="cursor-default">
-                  {label}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="mb-3 text-[13px] font-extrabold text-navy">پشتیبانی</h3>
-            <ul className="flex flex-col gap-2 text-[13px] text-muted">
-              {FOOTER_SUPPORT_LINKS.map((label) => (
-                <li key={label} className="cursor-default">
-                  {label}
-                </li>
-              ))}
-              <li className="cursor-default">info@chap34.com</li>
-            </ul>
-          </div>
+        <div>
+          <span className="text-lg font-extrabold text-navy">Chap34</span>
+          <p className="mt-2 max-w-xs text-[13px] leading-relaxed text-muted">
+            سرویس ساخت عکس پرسنلی استاندارد ۳×۴ با هوش مصنوعی و امکان سفارش
+            چاپ.
+          </p>
+          <a
+            href="https://instagram.com/chap34"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="اینستاگرام Chap34"
+            className="mt-4 flex h-8 w-8 items-center justify-center rounded-full bg-purple-tint text-purple-deep transition hover:bg-purple hover:text-white"
+          >
+            <IconInstagram className="h-4 w-4" />
+          </a>
         </div>
 
         <p className="mt-10 border-t border-line pt-6 text-center text-[12px] text-muted sm:text-right">

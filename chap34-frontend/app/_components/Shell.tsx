@@ -3,17 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Marketing nav links shown on the home page header. Items without a real
-// destination yet render as inert text (same treatment as the footer) so we
-// never ship a link that goes nowhere.
-const NAV_LINKS: { label: string; href?: string }[] = [
-  { label: "سفارش چاپ", href: "/capture" },
-  { label: "سفارشات من", href: "/account" },
-  { label: "قیمت‌ها" },
-  { label: "سوالات متداول" },
-  { label: "درباره ما" },
-  { label: "تماس با ما" },
-];
+// Marketing nav links shown on the home page header.
+const NAV_LINKS: { label: string; href: string }[] = [{ label: "سفارشات من", href: "/account" }];
 
 // The staff panel is a full-bleed desktop app with its own sidebar, so it
 // opts out of the customer chrome (logo header + narrow centered main).
@@ -40,21 +31,15 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             <Link href="/" className="shrink-0 text-lg font-extrabold text-navy">
               Chap34
             </Link>
-            <nav className="hidden items-center gap-6 text-[13.5px] font-semibold text-navy/70 md:flex">
+            <nav className="flex items-center gap-4 text-[12.5px] font-semibold text-navy/70 sm:gap-6 sm:text-[13.5px]">
               <Link href="/" className="border-b-2 border-purple-deep pb-1 text-purple-deep">
                 خانه
               </Link>
-              {NAV_LINKS.map((item) =>
-                item.href ? (
-                  <Link key={item.label} href={item.href} className="pb-1 transition hover:text-navy">
-                    {item.label}
-                  </Link>
-                ) : (
-                  <span key={item.label} className="cursor-default pb-1">
-                    {item.label}
-                  </span>
-                )
-              )}
+              {NAV_LINKS.map((item) => (
+                <Link key={item.label} href={item.href} className="pb-1 transition hover:text-navy">
+                  {item.label}
+                </Link>
+              ))}
             </nav>
             <Link
               href="/capture"

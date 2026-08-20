@@ -40,11 +40,11 @@ export default function HeroVisual() {
 
           <div className="min-w-0 flex-1">
             <span className="badge-soft block text-center">استاندارد ۳×۴</span>
-            <div className="relative mt-2 aspect-[3/4] overflow-hidden rounded-2xl border-2 border-purple/50 bg-white">
+            <div className="relative mt-2 aspect-[3/4] overflow-hidden rounded-2xl border-2 border-purple/50 bg-white p-2">
               <img
                 src={LANDING_IMAGES.heroResult}
                 alt="عکس پرسنلی استاندارد ۳×۴"
-                className="h-full w-full object-cover"
+                className="h-full w-full object-contain"
                 draggable={false}
               />
               <span className="absolute bottom-1.5 left-1.5 rounded-md bg-ink/75 px-1.5 py-0.5 text-[9px] font-bold text-white">
