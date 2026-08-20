@@ -172,12 +172,15 @@ export const panelApi = {
     status?: string;
     page?: number;
     page_size?: number;
+    /** Batched orders drop out of the queue by default; pass false to see them. */
+    exclude_batched?: boolean;
   }) => {
     const q = new URLSearchParams();
     if (opts.search) q.set("search", opts.search);
     if (opts.status) q.set("status", opts.status);
     q.set("page", String(opts.page || 1));
     if (opts.page_size) q.set("page_size", String(opts.page_size));
+    if (opts.exclude_batched === false) q.set("exclude_batched", "false");
     return request(`/api/ops/orders?${q.toString()}`) as Promise<{
       total: number;
       page: number;

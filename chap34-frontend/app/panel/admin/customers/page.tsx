@@ -49,23 +49,40 @@ export default function AdminCustomersPage() {
   }
 
   return (
-    <div className="card">
-      <h2 className="text-xl font-extrabold mb-4">مشتری‌ها</h2>
+    <div>
+      <h1 className="mb-4 text-lg font-extrabold text-navy">مشتری‌ها</h1>
       {customers.length === 0 ? (
-        <p className="text-muted text-center py-10">هنوز مشتری‌ای ثبت‌نام نکرده.</p>
+        <div className="card">
+          <p className="py-10 text-center text-muted">هنوز مشتری‌ای ثبت‌نام نکرده.</p>
+        </div>
       ) : (
-        <table className="w-full text-[13.5px]">
-          <thead><tr className="text-muted text-xs"><th className="text-right py-2">موبایل</th><th className="text-right py-2">تعداد سفارش</th><th></th></tr></thead>
-          <tbody>
-            {customers.map((c) => (
-              <tr key={c.id} className="border-t border-line">
-                <td className="py-2 font-mono2">{c.phone_number}</td>
-                <td className="py-2">{c.order_count}</td>
-                <td className="py-2"><button onClick={() => view(c.id)} className="btn-outline text-xs px-3 py-1.5">مشاهده حساب</button></td>
+        <div className="card overflow-x-auto p-0">
+          <table className="table-panel min-w-[420px]">
+            <thead>
+              <tr>
+                <th>موبایل</th>
+                <th>تعداد سفارش</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {customers.map((c) => (
+                <tr key={c.id}>
+                  <td className="font-mono2" dir="ltr">{c.phone_number}</td>
+                  <td className="font-mono2">{c.order_count}</td>
+                  <td>
+                    <button
+                      onClick={() => view(c.id)}
+                      className="rounded-lg border border-line px-2.5 py-1 text-xs font-bold text-navy"
+                    >
+                      مشاهده حساب
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

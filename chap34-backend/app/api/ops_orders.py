@@ -31,10 +31,17 @@ def list_orders(
     _=Depends(require_staff_role(StaffRole.ATELIER)),
     search: str | None = Query(default=None),
     status: str | None = Query(default=None),
+    exclude_batched: bool = Query(default=True),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=30, ge=1, le=100),
 ):
     orders = db.exec(select(Order)).all()
+
+    # Once an order is in a print batch it has been handed off to the batches
+    # screen, so it drops out of the "to process" queue by default. Callers
+    # can pass exclude_batched=false to see the full history again.
+    if exclude_batched:
+        orders = [o for o in orders if o.batch_id is None]
 
     if status and status != "all":
         try:
@@ -138,7 +145,9 @@ def _report_row(db: Session, order: Order, address: Address, user: User) -> dict
 @router.get("/orders/report")
 def orders_report(
     db: Session = Depends(get_session),
-    _=Depends(require_staff_role(StaffRole.ATELIER)),
+    # Admin sees the report too (it's the follow-up/lookup screen for the
+    # whole shop); the rest of /api/ops stays atelier-only.
+    _=Depends(require_staff_role(StaffRole.ATELIER, StaffRole.ADMIN)),
     phone: str | None = Query(default=None),
     name: str | None = Query(default=None),
     status: str | None = Query(default=None),
@@ -233,7 +242,7 @@ def _csv_value(key: str, data: dict):
 @router.get("/orders/report.csv")
 def orders_report_csv(
     db: Session = Depends(get_session),
-    _=Depends(require_staff_role(StaffRole.ATELIER)),
+    _=Depends(require_staff_role(StaffRole.ATELIER, StaffRole.ADMIN)),
     phone: str | None = Query(default=None),
     name: str | None = Query(default=None),
     status: str | None = Query(default=None),

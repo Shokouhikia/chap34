@@ -4,9 +4,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { clearPanelSession, getPanelName, getPanelRole, getPanelToken } from "@/lib/panelApi";
 
+// /panel/report is shared by both roles (the backend allows admin + atelier
+// on the report endpoints only), so it appears in both navs.
 const ADMIN_NAV = [
   { href: "/panel/admin/dashboard", label: "داشبورد" },
   { href: "/panel/admin/orders", label: "سفارش‌ها" },
+  { href: "/panel/report", label: "گزارش سفارشات" },
   { href: "/panel/admin/customers", label: "مشتری‌ها" },
   { href: "/panel/admin/settings", label: "تنظیمات" },
   { href: "/panel/admin/accounts", label: "حساب‌ها" },
@@ -17,7 +20,7 @@ const ATELIER_NAV = [
   { href: "/panel/atelier/batches", label: "بچ‌های چاپ" },
   { href: "/panel/atelier/packing", label: "بسته‌بندی" },
   { href: "/panel/atelier/shipments", label: "ارسال" },
-  { href: "/panel/atelier/report", label: "گزارش سفارشات" },
+  { href: "/panel/report", label: "گزارش سفارشات" },
   { href: "/panel/atelier/change-password", label: "تغییر رمز" },
 ];
 

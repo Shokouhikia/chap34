@@ -35,6 +35,10 @@ export default function AtelierOrdersPage() {
   const [showQueueModal, setShowQueueModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // Orders that are already in a print batch have moved on to the batches
+  // screen, so they're hidden here by default. The toggle keeps the
+  // per-order actions (label, sheet, advance) reachable for later stages.
+  const [showProcessed, setShowProcessed] = useState(false);
 
   const [trackingFor, setTrackingFor] = useState<OrderSummary | null>(null);
   const [trackingCode, setTrackingCode] = useState("");
@@ -43,7 +47,11 @@ export default function AtelierOrdersPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await panelApi.listOrders({ status: activeStage === "all" ? undefined : activeStage, page: 1 });
+      const data = await panelApi.listOrders({
+        status: activeStage === "all" ? undefined : activeStage,
+        page: 1,
+        exclude_batched: !showProcessed,
+      });
       setStages([]);
       setOrders(data.orders);
       setSelected(new Set());
@@ -52,7 +60,7 @@ export default function AtelierOrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeStage]);
+  }, [activeStage, showProcessed]);
 
   useEffect(() => {
     load();
@@ -136,10 +144,20 @@ export default function AtelierOrdersPage() {
         <div>
           <h1 className="text-lg font-extrabold text-navy">سفارش‌های آتلیه</h1>
           <p className="mt-0.5 text-xs text-muted">
-            قدیمی‌ترین سفارش‌ها ابتدا نمایش داده می‌شوند.
+            {showProcessed
+              ? "همه‌ی سفارش‌ها، قدیمی‌ترین ابتدا."
+              : "سفارش‌های پردازش‌نشده، قدیمی‌ترین ابتدا."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <label className="flex cursor-pointer items-center gap-1.5 text-[13px] font-bold text-navy">
+            <input
+              type="checkbox"
+              checked={showProcessed}
+              onChange={(e) => setShowProcessed(e.target.checked)}
+            />
+            نمایش پردازش‌شده‌ها
+          </label>
           <button
             disabled={selected.size === 0 || creating}
             onClick={createBatch}

@@ -66,7 +66,16 @@ def get_optional_current_user(
     return db.get(User, uuid.UUID(payload["sub"]))
 
 
-def require_staff_role(role: StaffRole):
+def require_staff_role(*roles: StaffRole):
+    """Guard an endpoint behind one or more staff roles.
+
+    Roles are checked by membership, not hierarchy - an admin token is NOT
+    automatically accepted where atelier is required. Endpoints that both
+    roles should reach (e.g. the order report) list both explicitly, which
+    keeps the widening deliberate and visible at the call site.
+    """
+    allowed = {role.value for role in roles}
+
     def dependency(
         authorization: str | None = Header(default=None),
         db: Session = Depends(get_session),
@@ -76,7 +85,7 @@ def require_staff_role(role: StaffRole):
 
         token = authorization.removeprefix("Bearer ").strip()
         payload = decode_token(token)
-        if not payload or payload.get("type") != "staff" or payload.get("role") != role.value:
+        if not payload or payload.get("type") != "staff" or payload.get("role") not in allowed:
             raise HTTPException(status_code=401, detail="دسترسی لازم را ندارید")
 
         staff = db.get(StaffAccount, uuid.UUID(payload["sub"]))
