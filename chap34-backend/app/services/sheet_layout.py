@@ -1,6 +1,7 @@
 """
-Print-sheet layout: arrange the 3x4 photo pieces of one or many orders onto
-physical sheets, ready to send to a printer.
+Print-sheet layout: arrange the photo pieces of one or many orders onto
+physical sheets, ready to send to a printer. Each order is laid out at the
+size the customer actually ordered (3x4 or 6x8) - see `_CELL_PX`.
 
 This is the single source of the layout logic, called by both the atelier
 panel (single / print-queue printing) and the operations panel (batch
@@ -27,19 +28,21 @@ from dataclasses import dataclass
 import qrcode
 from PIL import Image, ImageDraw
 
-from app.models.order import SheetSize
+from app.models.order import PrintSize, SheetSize
 from app.services.rendering import draw_text_rtl, get_font, shape_fa
 
 
 @dataclass
 class SheetOrder:
-    """One order's worth of pieces to place. `photo` is the finished 3x4
-    image (already loaded); None renders a labelled placeholder so the sheet
-    still lays out correctly when a file is missing in the demo."""
+    """One order's worth of pieces to place. `photo` is the finished image
+    (already loaded); None renders a labelled placeholder so the sheet still
+    lays out correctly when a file is missing in the demo. `size` decides the
+    physical cell geometry - a 6x8 order must not be printed in 3x4 cells."""
     order_code: str
     customer_name: str
     quantity: int
     photo: Image.Image | None = None
+    size: PrintSize = PrintSize.SIZE_3X4
 
 
 # Physical geometry at 300 dpi.
@@ -51,9 +54,18 @@ _SHEET_PX = {
 _MARGIN = 40
 _BANNER_H = 90          # top strip on every sheet (sheet title / combined note)
 _HEADER_H = 150         # per-order header band
-_CELL_W = 354           # 3x4 piece width  @300dpi (~3cm)
-_CELL_H = 472           # 3x4 piece height @300dpi (~4cm)
 _CELL_PAD = 12          # inner padding inside a cell = cut margin
+
+# Physical piece geometry at 300 dpi, keyed by the size the CUSTOMER ordered.
+# (Distinct from SheetSize, which is the paper being printed on.)
+_CELL_PX = {
+    PrintSize.SIZE_3X4: (354, 472),   # ~3cm x 4cm
+    PrintSize.SIZE_6X8: (709, 945),   # ~6cm x 8cm
+}
+
+
+def _cell_size(size: PrintSize) -> tuple[int, int]:
+    return _CELL_PX.get(size, _CELL_PX[PrintSize.SIZE_3X4])
 
 _BG = (255, 255, 255)
 _INK = (20, 20, 46)
@@ -101,9 +113,10 @@ def _draw_header(
 
 def _draw_cell(sheet: Image.Image, x: int, y: int, order: SheetOrder) -> None:
     draw = ImageDraw.Draw(sheet)
+    cell_w, cell_h = _cell_size(order.size)
     # Cut-guide border.
-    draw.rectangle([x, y, x + _CELL_W, y + _CELL_H], outline=_LINE, width=1)
-    inner = (x + _CELL_PAD, y + _CELL_PAD, x + _CELL_W - _CELL_PAD, y + _CELL_H - _CELL_PAD)
+    draw.rectangle([x, y, x + cell_w, y + cell_h], outline=_LINE, width=1)
+    inner = (x + _CELL_PAD, y + _CELL_PAD, x + cell_w - _CELL_PAD, y + cell_h - _CELL_PAD)
     iw, ih = inner[2] - inner[0], inner[3] - inner[1]
     if order.photo is not None:
         pic = order.photo.convert("RGB").resize((iw, ih))
@@ -147,6 +160,9 @@ def build_sheets(orders: list[SheetOrder], sheet_size: SheetSize) -> list[Image.
     cursor_x = content_left
     cursor_y = row_top_start
     row_has_cells = False  # whether the current row already holds pieces
+    # Height of the row currently being filled. Tracked separately because
+    # different orders on the same sheet can have different piece sizes.
+    row_h = _cell_size(PrintSize.SIZE_3X4)[1]
 
     def new_page() -> None:
         nonlocal current, cursor_x, cursor_y, row_has_cells
@@ -159,16 +175,22 @@ def build_sheets(orders: list[SheetOrder], sheet_size: SheetSize) -> list[Image.
 
     def newline() -> None:
         nonlocal cursor_x, cursor_y, row_has_cells
-        cursor_y += _CELL_H
+        cursor_y += row_h
         cursor_x = content_left
         row_has_cells = False
 
     for order in orders:
-        # An order header always starts on a fresh row.
+        # An order header always starts on a fresh row. This still advances by
+        # the PREVIOUS order's row height, which is why row_h is only updated
+        # after the newline below.
         if row_has_cells:
             newline()
+
+        cell_w, cell_h = _cell_size(order.size)
+        row_h = cell_h
+
         # If the header itself won't fit, move to a new sheet first.
-        if cursor_y + _HEADER_H + _CELL_H > content_bottom:
+        if cursor_y + _HEADER_H + cell_h > content_bottom:
             new_page()
         _draw_header(current, cursor_y, order, continuation=False)
         orders_per_sheet[-1] += 1
@@ -179,10 +201,10 @@ def build_sheets(orders: list[SheetOrder], sheet_size: SheetSize) -> list[Image.
         placed = 0
         while placed < order.quantity:
             # Wrap to next row if this piece would overflow the right edge.
-            if cursor_x + _CELL_W > content_right:
+            if cursor_x + cell_w > content_right:
                 newline()
             # Page break if the row would overflow the bottom.
-            if cursor_y + _CELL_H > content_bottom:
+            if cursor_y + cell_h > content_bottom:
                 new_page()
                 _draw_header(current, cursor_y, order, continuation=True)
                 orders_per_sheet[-1] += 1
@@ -190,7 +212,7 @@ def build_sheets(orders: list[SheetOrder], sheet_size: SheetSize) -> list[Image.
                 cursor_x = content_left
                 row_has_cells = False
             _draw_cell(current, cursor_x, cursor_y, order)
-            cursor_x += _CELL_W
+            cursor_x += cell_w
             placed += 1
             row_has_cells = True
 
