@@ -51,7 +51,7 @@ function PrintOptionsPageInner() {
   }
 
   function continueNext() {
-    printDraft.update({ size, quantity, paperType });
+    printDraft.update({ size, quantity, paperType, photoId });
     router.push(`/checkout/address?photoId=${photoId}`);
   }
 

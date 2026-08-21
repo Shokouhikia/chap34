@@ -9,6 +9,9 @@ export type GenderSettingsDraft = {
 };
 
 export type PrintOrderDraft = {
+  /** Carried here as well as in the URL so a lost query param (e.g. the
+   *  login redirect) can't strand the checkout without a photo. */
+  photoId?: string;
   size: "3x4" | "6x8";
   quantity: number;
   paperType: "glossy" | "matte";

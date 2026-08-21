@@ -15,7 +15,10 @@ const toman = (n: number) => n.toLocaleString("fa-IR");
 function SummaryPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const photoId = searchParams.get("photoId") || "";
+  const draft = printDraft.get();
+  // Fall back to the draft: the login redirect used to drop the query string,
+  // which left photoId empty and made createOrder fail 422 validation.
+  const photoId = searchParams.get("photoId") || draft?.photoId || "";
 
   const [orderId, setOrderId] = useState<string | null>(null);
   const [amount, setAmount] = useState<number | null>(null);
@@ -26,11 +29,17 @@ function SummaryPageInner() {
   const [discountCode, setDiscountCode] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
   const [discountPercent, setDiscountPercent] = useState<number | null>(null);
-  const draft = printDraft.get();
 
   useEffect(() => {
     if (!draft || !draft.phone) {
       router.push(`/checkout/address?photoId=${photoId}`);
+      return;
+    }
+
+    if (!photoId) {
+      // Nothing to order against - don't fire a request that can only 422.
+      setError("عکس این سفارش مشخص نیست. لطفاً دوباره از ابتدا شروع کنید.");
+      setLoading(false);
       return;
     }
 

@@ -42,6 +42,24 @@ async function fetchWithRetry(url: string, options: RequestInit): Promise<Respon
   }
 }
 
+/**
+ * FastAPI's error `detail` is a string for HTTPException but a LIST of
+ * {loc, msg, type} objects for 422 validation errors. Passing that list
+ * straight to `new Error()` stringifies it to "[object Object]", which is
+ * what users were seeing instead of a real message.
+ */
+function errorMessage(body: unknown, fallback: string): string {
+  const detail = (body as { detail?: unknown } | null)?.detail;
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (Array.isArray(detail)) {
+    const parts = detail
+      .map((e) => (e && typeof e === "object" ? (e as { msg?: unknown }).msg : e))
+      .filter((m): m is string => typeof m === "string" && m.length > 0);
+    if (parts.length) return parts.join("، ");
+  }
+  return fallback;
+}
+
 async function request(path: string, options: RequestInit = {}) {
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
@@ -60,13 +78,15 @@ async function request(path: string, options: RequestInit = {}) {
       // left in localStorage would otherwise fail silently forever.
       clearAccessToken();
       if (typeof window !== "undefined") {
-        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+        window.location.href = `/login?redirect=${encodeURIComponent(
+          window.location.pathname + window.location.search
+        )}`;
       }
       throw new Error("نشست شما منقضی شده است، دوباره وارد شوید");
     }
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail || `درخواست ناموفق بود (${res.status})`);
+      throw new Error(errorMessage(body, `درخواست ناموفق بود (${res.status})`));
     }
     return res.json();
   } catch (err) {
@@ -111,7 +131,7 @@ export const api = {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || `آپلود عکس ناموفق بود (${res.status})`);
+        throw new Error(errorMessage(body, `آپلود عکس ناموفق بود (${res.status})`));
       }
       const data = await res.json();
       setSessionToken(data.session_token);
