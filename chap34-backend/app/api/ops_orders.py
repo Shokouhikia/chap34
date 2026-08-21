@@ -196,6 +196,7 @@ CSV_COLUMNS: list[tuple[str, str]] = [
     ("quantity", "تعداد"),
     ("total_price", "مبلغ"),
     ("fulfillment_status", "وضعیت"),
+    ("batch_code", "شماره بچ"),
     ("tracking_code", "کد رهگیری"),
     ("province", "استان"),
     ("city", "شهر"),

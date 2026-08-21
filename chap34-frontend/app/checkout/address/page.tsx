@@ -6,6 +6,40 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { printDraft } from "@/lib/draft";
 
+const IRAN_PROVINCES = [
+  "آذربایجان شرقی",
+  "آذربایجان غربی",
+  "اردبیل",
+  "اصفهان",
+  "البرز",
+  "ایلام",
+  "بوشهر",
+  "تهران",
+  "چهارمحال و بختیاری",
+  "خراسان جنوبی",
+  "خراسان رضوی",
+  "خراسان شمالی",
+  "خوزستان",
+  "زنجان",
+  "سمنان",
+  "سیستان و بلوچستان",
+  "فارس",
+  "قزوین",
+  "قم",
+  "کردستان",
+  "کرمان",
+  "کرمانشاه",
+  "کهگیلویه و بویراحمد",
+  "گلستان",
+  "گیلان",
+  "لرستان",
+  "مازندران",
+  "مرکزی",
+  "هرمزگان",
+  "همدان",
+  "یزد",
+];
+
 function AddressPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -79,13 +113,19 @@ function AddressPageInner() {
              <label htmlFor="province" className="mb-1 block text-xs font-bold text-navy">
                استان
              </label>
-             <input
+             <select
                id="province"
-               placeholder="مثلاً تهران"
                className="field-input"
                value={form.province}
                onChange={(e) => update("province", e.target.value)}
-             />
+             >
+               <option value="">انتخاب کنید</option>
+               {IRAN_PROVINCES.map((p) => (
+                 <option key={p} value={p}>
+                   {p}
+                 </option>
+               ))}
+             </select>
            </div>
            <div className="flex-1">
              <label htmlFor="city" className="mb-1 block text-xs font-bold text-navy">
@@ -93,7 +133,7 @@ function AddressPageInner() {
              </label>
              <input
                id="city"
-               placeholder="مثلاً کرج"
+               placeholder="مثلاً تهران"
                className="field-input"
                value={form.city}
                onChange={(e) => update("city", e.target.value)}

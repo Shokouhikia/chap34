@@ -107,6 +107,7 @@ export type OrderSummary = {
   atelier_stage: string;
   tracking_code: string | null;
   batch_id: string | null;
+  batch_code: string | null;
   shipment_id: string | null;
   created_at: string;
 };
@@ -329,11 +330,20 @@ export const panelApi = {
       body: JSON.stringify(body),
     }),
   listAtelierAccounts: () => request("/api/admin/atelier-accounts"),
-  createAtelierAccount: (username: string, password: string) =>
+  createAtelierAccount: (name: string, username: string, password: string) =>
     request("/api/admin/atelier-accounts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ name, username, password }),
+    }),
+  updateAtelierAccount: (
+    id: string,
+    body: { name?: string; username?: string; password?: string; is_active?: boolean }
+  ) =>
+    request(`/api/admin/atelier-accounts/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     }),
   deactivateAtelierAccount: (id: string) =>
     request(`/api/admin/atelier-accounts/${id}`, { method: "DELETE" }),
@@ -346,6 +356,12 @@ export const panelApi = {
     }),
   toggleDiscountCode: (id: string) =>
     request(`/api/admin/discount-codes/${id}/toggle`, { method: "PATCH" }),
+  getDiscountCodeUsage: (id: string) =>
+    request(`/api/admin/discount-codes/${id}/usage`) as Promise<{
+      code: string;
+      total_uses: number;
+      by_user: { phone: string; count: number }[];
+    }>,
 
   fileUrl(path: string) {
     return `${API_URL}${path}`;

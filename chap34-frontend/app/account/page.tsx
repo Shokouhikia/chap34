@@ -7,14 +7,14 @@ import OrdersTab from "@/components/account/OrdersTab";
 import PhotosTab from "@/components/account/PhotosTab";
 
 const TABS = [
-  { key: "photos", label: "عکس‌های من" },
   { key: "orders", label: "سفارش‌های من" },
+  { key: "photos", label: "عکس‌های من" },
 ] as const;
 
 function AccountPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tab = searchParams.get("tab") === "orders" ? "orders" : "photos";
+  const tab = searchParams.get("tab") === "photos" ? "photos" : "orders";
 
   return (
     <div>

@@ -126,7 +126,7 @@ function SummaryPageInner() {
       </h2>
 
       {draft && (
-        <div className="price-box">
+        <div className="price-box mb-4">
           <div className="price-row">
             <span>سایز</span>
             <span>{SIZE_LABEL[draft.size]}</span>
@@ -135,33 +135,18 @@ function SummaryPageInner() {
             <span>نوع کاغذ</span>
             <span>{PAPER_LABEL[draft.paperType]}</span>
           </div>
-           <div className="price-row">
-             <span>تعداد</span>
-             <span>{toman(draft.quantity)} قطعه</span>
-           </div>
-           {shippingCost !== null && (
-             <div className="price-row">
-               <span>هزینه ارسال</span>
-               <span>{toman(shippingCost)} تومان</span>
-             </div>
-           )}
-           {discountAmount > 0 && (
-             <div className="price-row text-green-600">
-               <span>تخفیف {discountPercent ? `(${discountPercent}٪)` : ""}</span>
-               <span>-{toman(discountAmount)} تومان</span>
-             </div>
-           )}
-           <div className="price-row total">
-             <span>مبلغ قابل پرداخت</span>
-             <span>{amount !== null ? `${toman(amount)} تومان` : "..."}</span>
-           </div>
+          <div className="price-row">
+            <span>تعداد</span>
+            <span>{toman(draft.quantity)} قطعه</span>
+          </div>
+          {shippingCost !== null && (
+            <div className="price-row">
+              <span>هزینه ارسال</span>
+              <span>{toman(shippingCost)} تومان</span>
+            </div>
+          )}
         </div>
       )}
-
-      <div className="card my-4 flex items-center justify-between border-purple bg-purple-tint">
-        <span className="text-sm font-bold text-navy">درگاه بانک ملی (دمو)</span>
-        <span className="h-4 w-4 rounded-full border-2 border-purple bg-purple" />
-      </div>
 
       <div className="mb-4">
         <label className="mb-1 block text-sm font-bold text-navy">کد تخفیف (اختیاری)</label>
@@ -177,6 +162,29 @@ function SummaryPageInner() {
             اعمال کد
           </button>
         </div>
+      </div>
+
+      {discountAmount > 0 && (
+        <div className="mb-4 flex items-center justify-between rounded-2xl border border-green-200 bg-green-50 px-4 py-3">
+          <span className="text-sm font-bold text-green-700">
+            تخفیف اعمال‌شده {discountPercent ? `(${discountPercent}٪)` : ""}
+          </span>
+          <span className="text-sm font-extrabold text-green-700">
+            -{toman(discountAmount)} تومان
+          </span>
+        </div>
+      )}
+
+      <div className="mb-4 rounded-2xl bg-purple-tint px-4 py-4 text-center">
+        <span className="mb-1 block text-xs font-bold text-navy/70">مبلغ قابل پرداخت</span>
+        <span className="block text-2xl font-extrabold text-purple-deep">
+          {amount !== null ? `${toman(amount)} تومان` : "..."}
+        </span>
+      </div>
+
+      <div className="card mb-4 flex items-center justify-between border-purple bg-purple-tint">
+        <span className="text-sm font-bold text-navy">درگاه بانک ملی (دمو)</span>
+        <span className="h-4 w-4 rounded-full border-2 border-purple bg-purple" />
       </div>
 
       {error && <p className="mb-3 text-sm font-bold text-red-500">{error}</p>}

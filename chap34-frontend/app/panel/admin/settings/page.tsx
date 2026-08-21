@@ -8,12 +8,6 @@ export default function AdminSettingsPage() {
   const [modelChoices, setModelChoices] = useState<Record<string, string>>({});
   const [form, setForm] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [newShopUser, setNewShopUser] = useState("");
-  const [newShopPass, setNewShopPass] = useState("");
-  const [discounts, setDiscounts] = useState<any[]>([]);
-  const [newCode, setNewCode] = useState("");
-  const [newPercent, setNewPercent] = useState("10");
 
   function load() {
     panelApi
@@ -23,8 +17,6 @@ export default function AdminSettingsPage() {
         setModelChoices(d.openrouter_model_choices || {});
       })
       .catch(() => {});
-    panelApi.listAtelierAccounts().then(setAccounts).catch(() => {});
-    panelApi.listDiscountCodes().then(setDiscounts).catch(() => {});
   }
   useEffect(load, []);
 
@@ -33,23 +25,6 @@ export default function AdminSettingsPage() {
     setForm({});
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-    load();
-  }
-
-  async function createShopAccount() {
-    await panelApi.createAtelierAccount(newShopUser, newShopPass);
-    setNewShopUser(""); setNewShopPass("");
-    load();
-  }
-
-  async function createDiscount() {
-    await panelApi.createDiscountCode(newCode, Number(newPercent));
-    setNewCode(""); setNewPercent("10");
-    load();
-  }
-
-  async function toggleDiscount(id: string) {
-    await panelApi.toggleDiscountCode(id);
     load();
   }
 
@@ -140,42 +115,6 @@ export default function AdminSettingsPage() {
         </fieldset>
         <button onClick={save} className="btn-primary w-full mt-4">ذخیرهٔ این بخش</button>
         {saved && <p className="text-green-600 font-bold text-[13px] mt-2">✓ ذخیره شد</p>}
-      </div>
-
-      <div className="card">
-        <h2 className="text-lg font-extrabold mb-1">🎯 کدهای تخفیف</h2>
-        <p className="text-xs text-muted mb-4">درصدی که وارد می‌کنید فقط از هزینهٔ چاپ کم می‌شه، نه هزینهٔ ارسال.</p>
-        <table className="w-full text-[13.5px] mb-4">
-          <thead><tr className="text-muted text-xs"><th className="text-right py-2">کد</th><th className="text-right py-2">درصد</th><th className="text-right py-2">وضعیت</th><th></th></tr></thead>
-          <tbody>
-            {discounts.map((d) => (
-              <tr key={d.id} className="border-t border-line">
-                <td className="py-2 font-mono2">{d.code}</td>
-                <td className="py-2">{d.percent}٪</td>
-                <td className="py-2">{d.active ? <span className="text-green-600">فعال</span> : <span className="text-muted">غیرفعال</span>}</td>
-                <td className="py-2"><button onClick={() => toggleDiscount(d.id)} className="btn-outline text-xs px-3 py-1">{d.active ? "غیرفعال کن" : "فعال کن"}</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="flex gap-2">
-          <input value={newCode} onChange={(e) => setNewCode(e.target.value)} placeholder="کد (مثلاً WELCOME10)" className="field-input" />
-          <input value={newPercent} onChange={(e) => setNewPercent(e.target.value)} placeholder="٪" type="number" min={1} max={100} className="field-input w-24" />
-          <button onClick={createDiscount} className="btn-primary whitespace-nowrap">ایجاد کد</button>
-        </div>
-      </div>
-
-      <div className="card">
-        <h2 className="text-lg font-extrabold mb-1">👷 حساب‌های پنل آتلیه</h2>
-        <p className="text-xs text-muted mb-4">هر تعداد که بخواهید برای کارکنان چاپخانه بسازید.</p>
-        <table className="w-full text-[13.5px] mb-4">
-          <tbody>{accounts.map((a) => <tr key={a.id} className="border-t border-line"><td className="py-2">{a.username}</td><td className="py-2">{a.name}</td><td className="py-2">{a.is_active ? "فعال" : "غیرفعال"}</td></tr>)}</tbody>
-        </table>
-        <div className="flex gap-2">
-          <input value={newShopUser} onChange={(e) => setNewShopUser(e.target.value)} placeholder="نام کاربری جدید" className="field-input" />
-          <input value={newShopPass} onChange={(e) => setNewShopPass(e.target.value)} placeholder="رمز عبور" className="field-input" />
-          <button onClick={createShopAccount} className="btn-primary whitespace-nowrap">ایجاد حساب</button>
-        </div>
       </div>
     </div>
   );

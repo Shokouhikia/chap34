@@ -222,6 +222,7 @@ export default function AtelierReportPage() {
               <th>تعداد</th>
               <th>مبلغ</th>
               <th>وضعیت</th>
+              <th>شماره بچ</th>
               <th>کد رهگیری</th>
               <th>استان / شهر</th>
             </tr>
@@ -253,6 +254,9 @@ export default function AtelierReportPage() {
                   <span className="pill-status">{statusLabel(r.fulfillment_status)}</span>
                 </td>
                 <td className="font-mono2 text-xs text-muted" dir="ltr">
+                  {r.batch_code || "—"}
+                </td>
+                <td className="font-mono2 text-xs text-muted" dir="ltr">
                   {r.tracking_code || "—"}
                 </td>
                 <td className="whitespace-nowrap text-xs">
@@ -262,7 +266,7 @@ export default function AtelierReportPage() {
             ))}
             {rows.length === 0 && !loading && (
               <tr>
-                <td colSpan={11} className="p-8 text-center text-sm text-muted">
+                <td colSpan={12} className="p-8 text-center text-sm text-muted">
                   سفارشی با این فیلترها پیدا نشد
                 </td>
               </tr>

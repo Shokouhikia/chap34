@@ -6,6 +6,8 @@ from app.api.deps import require_staff_role
 from app.core.database import get_session
 from app.core.security import hash_password
 from app.models.discount import DiscountCode
+from app.models.order import Order, OrderStatus
+from app.models.user import User
 from app.models.setting import (
     KEY_AI_PROVIDER,
     KEY_BASE_URL,
@@ -135,12 +137,91 @@ def deactivate_atelier_account(account_id: str, db: Session = Depends(get_sessio
     return {"ok": True}
 
 
+class UpdateAtelierAccount(BaseModel):
+    name: str | None = None
+    username: str | None = None
+    password: str | None = None
+    is_active: bool | None = None
+
+
+@router.patch("/atelier-accounts/{account_id}")
+def update_atelier_account(
+    account_id: str,
+    body: UpdateAtelierAccount,
+    db: Session = Depends(get_session),
+    _staff: StaffAccount = Depends(require_admin),
+):
+    account = db.get(StaffAccount, account_id)
+    if not account or account.role != StaffRole.ATELIER:
+        raise HTTPException(status_code=404, detail="حساب یافت نشد")
+
+    if body.username and body.username != account.username:
+        existing = db.exec(
+            select(StaffAccount).where(StaffAccount.username == body.username)
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="این نام کاربری قبلاً استفاده شده")
+        account.username = body.username
+
+    if body.name:
+        account.name = body.name
+    if body.password:
+        account.password_hash = hash_password(body.password)
+    if body.is_active is not None:
+        account.is_active = body.is_active
+
+    db.add(account)
+    db.commit()
+    db.refresh(account)
+    return {"id": account.id, "username": account.username, "name": account.name, "is_active": account.is_active}
+
+
 # ---- discount codes ----
 
 @router.get("/discount-codes")
 def list_discount_codes(db: Session = Depends(get_session), _staff: StaffAccount = Depends(require_admin)):
     rows = db.exec(select(DiscountCode).order_by(DiscountCode.created_at.desc())).all()
-    return rows
+    out = []
+    for row in rows:
+        # CANCELLED orders are excluded - those are mostly the leftover
+        # duplicate rows the summary page used to create on every discount
+        # re-apply (see orders.py create_order), not real redemptions.
+        uses = db.exec(
+            select(Order).where(
+                Order.discount_code == row.code, Order.status != OrderStatus.CANCELLED
+            )
+        ).all()
+        out.append({**row.model_dump(), "usage_count": len(uses)})
+    return out
+
+
+@router.get("/discount-codes/{code_id}/usage")
+def discount_code_usage(
+    code_id: str, db: Session = Depends(get_session), _staff: StaffAccount = Depends(require_admin)
+):
+    """Per-user redemption breakdown for one discount code."""
+    row = db.get(DiscountCode, code_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="کد یافت نشد")
+
+    orders = db.exec(
+        select(Order).where(
+            Order.discount_code == row.code, Order.status != OrderStatus.CANCELLED
+        )
+    ).all()
+
+    by_user: dict[str, dict] = {}
+    for order in orders:
+        user = db.get(User, order.user_id)
+        phone = user.phone_number if user else str(order.user_id)
+        entry = by_user.setdefault(phone, {"phone": phone, "count": 0})
+        entry["count"] += 1
+
+    return {
+        "code": row.code,
+        "total_uses": len(orders),
+        "by_user": sorted(by_user.values(), key=lambda e: -e["count"]),
+    }
 
 
 class CreateDiscountCode(BaseModel):

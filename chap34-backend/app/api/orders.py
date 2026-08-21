@@ -11,6 +11,7 @@ partner. Everything else (address handling, price computation) is real
 logic - only the external SMS/AI/payment calls are stubbed.
 """
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -105,24 +106,56 @@ def create_order(
     db.commit()
     db.refresh(address)
 
-    order = Order(
-        user_id=user.id,
-        photo_id=body.photo_id,
-        address_id=address.id,
-        size=body.size,
-        paper_type=body.paper_type,
-        quantity=body.quantity,
-        total_price=amount,
-        discount_code=normalized_discount_code,
-        discount_percent=discount_percent,
-        discount_amount=discount_amount,
-        order_code=next_order_code(db),
-    )
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-    db.add(OrderStatusHistory(order_id=order.id, status=OrderStatus.CREATED))
-    db.commit()
+    # The summary page calls this endpoint both on load (to get a price quote)
+    # and again every time the discount code is (re)applied. Without this
+    # check, each of those calls minted a brand-new unpaid Order row - a
+    # customer clicking "apply" a few times ended up with several orphaned
+    # `created` orders and only the last one ever got paid. Reusing the most
+    # recent still-unpaid order for this user+photo makes repeated calls
+    # idempotent instead of multiplying rows.
+    existing = db.exec(
+        select(Order)
+        .where(
+            Order.user_id == user.id,
+            Order.photo_id == body.photo_id,
+            Order.status == OrderStatus.CREATED,
+        )
+        .order_by(Order.created_at.desc())
+    ).first()
+
+    if existing:
+        existing.address_id = address.id
+        existing.size = body.size
+        existing.paper_type = body.paper_type
+        existing.quantity = body.quantity
+        existing.total_price = amount
+        existing.discount_code = normalized_discount_code
+        existing.discount_percent = discount_percent
+        existing.discount_amount = discount_amount
+        existing.updated_at = datetime.utcnow()
+        db.add(existing)
+        db.commit()
+        db.refresh(existing)
+        order = existing
+    else:
+        order = Order(
+            user_id=user.id,
+            photo_id=body.photo_id,
+            address_id=address.id,
+            size=body.size,
+            paper_type=body.paper_type,
+            quantity=body.quantity,
+            total_price=amount,
+            discount_code=normalized_discount_code,
+            discount_percent=discount_percent,
+            discount_amount=discount_amount,
+            order_code=next_order_code(db),
+        )
+        db.add(order)
+        db.commit()
+        db.refresh(order)
+        db.add(OrderStatusHistory(order_id=order.id, status=OrderStatus.CREATED))
+        db.commit()
 
     return {
         "order_id": order.id,

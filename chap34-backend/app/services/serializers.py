@@ -22,6 +22,18 @@ def photo_url_for(db: Session, order: Order) -> str | None:
     return photo.result_file_url if photo else None
 
 
+def batch_code_for(db: Session, order: Order) -> str | None:
+    """The human-readable batch code (e.g. BATCH-0001) an order was printed
+    under, for the report - so staff can trace a customer's photo back to
+    the physical print run without opening the batch screen separately."""
+    if not order.batch_id:
+        return None
+    from app.models.print_batch import PrintBatch  # local import mirrors fulfillment.py
+
+    batch = db.get(PrintBatch, order.batch_id)
+    return batch.code if batch else None
+
+
 def order_summary(db: Session, order: Order) -> dict:
     return {
         "id": str(order.id),
@@ -35,6 +47,7 @@ def order_summary(db: Session, order: Order) -> dict:
         "atelier_stage": to_atelier_stage(order.fulfillment_status),
         "tracking_code": order.tracking_code,
         "batch_id": str(order.batch_id) if order.batch_id else None,
+        "batch_code": batch_code_for(db, order),
         "shipment_id": str(order.shipment_id) if order.shipment_id else None,
         "created_at": order.created_at.isoformat(),
     }

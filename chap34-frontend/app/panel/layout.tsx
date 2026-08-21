@@ -11,8 +11,9 @@ const ADMIN_NAV = [
   { href: "/panel/admin/orders", label: "سفارش‌ها" },
   { href: "/panel/report", label: "گزارش سفارشات" },
   { href: "/panel/admin/customers", label: "مشتری‌ها" },
+  { href: "/panel/admin/discounts", label: "کدهای تخفیف" },
+  { href: "/panel/admin/accounts", label: "حساب‌های آتلیه" },
   { href: "/panel/admin/settings", label: "تنظیمات" },
-  { href: "/panel/admin/accounts", label: "حساب‌ها" },
 ];
 
 const ATELIER_NAV = [
