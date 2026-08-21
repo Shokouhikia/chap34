@@ -75,9 +75,8 @@ export default function HomePage() {
             <span className="text-purple-deep">۳×۴</span> تحویل بگیر
           </h1>
           <p className="mb-7 max-w-md text-[15px] leading-relaxed text-muted sm:text-base">
-            بدون نیاز به رفتن به آتلیه، عکست رو آپلود کن یا با دوربین بگیر؛
-            هوش مصنوعی عکس رو به یک عکس پرسنلی حرفه‌ای و استاندارد ۳×۴
-            تبدیل می‌کنه.
+            بدون رفتن به آتلیه، عکس از خود بفرست؛ هوش مصنوعی اون رو به عکس
+            پرسنلی استاندارد ۳×۴ تبدیل می‌کنه.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <Link href="/capture" className="btn-primary">

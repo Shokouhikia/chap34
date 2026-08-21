@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app.api.deps import require_staff_role
 from app.core.database import get_session
@@ -116,10 +116,13 @@ class CreateAtelierAccount(BaseModel):
 
 @router.post("/atelier-accounts")
 def create_atelier_account(body: CreateAtelierAccount, db: Session = Depends(get_session), _staff: StaffAccount = Depends(require_admin)):
-    existing = db.exec(select(StaffAccount).where(StaffAccount.username == body.username)).first()
+    username = body.username.strip()
+    existing = db.exec(
+        select(StaffAccount).where(func.lower(StaffAccount.username) == username.lower())
+    ).first()
     if existing:
         raise HTTPException(status_code=400, detail="این نام کاربری قبلاً استفاده شده")
-    account = StaffAccount(name=body.name, username=body.username, password_hash=hash_password(body.password), role=StaffRole.ATELIER)
+    account = StaffAccount(name=body.name.strip(), username=username, password_hash=hash_password(body.password), role=StaffRole.ATELIER)
     db.add(account)
     db.commit()
     db.refresh(account)
@@ -155,16 +158,17 @@ def update_atelier_account(
     if not account or account.role != StaffRole.ATELIER:
         raise HTTPException(status_code=404, detail="حساب یافت نشد")
 
-    if body.username and body.username != account.username:
+    if body.username and body.username.strip().lower() != account.username.lower():
+        new_username = body.username.strip()
         existing = db.exec(
-            select(StaffAccount).where(StaffAccount.username == body.username)
+            select(StaffAccount).where(func.lower(StaffAccount.username) == new_username.lower())
         ).first()
         if existing:
             raise HTTPException(status_code=400, detail="این نام کاربری قبلاً استفاده شده")
-        account.username = body.username
+        account.username = new_username
 
     if body.name:
-        account.name = body.name
+        account.name = body.name.strip()
     if body.password:
         account.password_hash = hash_password(body.password)
     if body.is_active is not None:

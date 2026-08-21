@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app.api.deps import require_staff_role
 from app.core.database import get_session
@@ -22,8 +22,14 @@ class ChangePasswordBody(BaseModel):
 
 @router.post("/login")
 def login(body: LoginBody, db: Session = Depends(get_session)):
+    # Case-insensitive + whitespace-tolerant: an admin creating "Atelier1" and
+    # the actual atelier worker later typing "atelier1" (or copy-pasting a
+    # username with a stray trailing space) should still be the same login,
+    # not a confusing "wrong password" right after the account was made.
     staff = db.exec(
-        select(StaffAccount).where(StaffAccount.username == body.username)
+        select(StaffAccount).where(
+            func.lower(StaffAccount.username) == body.username.strip().lower()
+        )
     ).first()
     if not staff or not verify_password(body.password, staff.password_hash):
         raise HTTPException(status_code=401, detail="نام کاربری یا رمز عبور نادرست است")

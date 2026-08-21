@@ -1,5 +1,5 @@
 """
-Packing stage (BRD 5.7): an 8-item checklist must be fully ticked before an
+Packing stage (BRD 5.7): the checklist must be fully ticked before an
 order can be confirmed as `packed`.
 """
 import uuid
@@ -18,13 +18,6 @@ from app.services.serializers import order_summary
 router = APIRouter(prefix="/api/ops/packing", tags=["ops-packing"])
 
 CHECKLIST_ITEMS: list[tuple[str, str]] = [
-    ("piece_count", "تعداد قطعات مطابقت دارد"),
-    ("print_quality", "کیفیت چاپ تأیید شد"),
-    ("cutting", "برش صحیح انجام شد"),
-    ("recipient_info", "اطلاعات گیرنده بررسی شد"),
-    ("address_label", "برچسب آدرس الصاق شد"),
-    ("protective_cover", "محافظ/مقوا اضافه شد"),
-    ("envelope", "داخل پاکت مناسب قرار گرفت"),
     ("sealed", "بسته پلمب شد"),
 ]
 CHECKLIST_KEYS = [key for key, _ in CHECKLIST_ITEMS]

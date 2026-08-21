@@ -13,12 +13,15 @@ _BCRYPT_MAX_BYTES = 72
 
 
 def hash_password(raw_password: str) -> str:
-    pw = raw_password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
+    # Stripped so a password copy-pasted with a trailing space/newline (very
+    # common when an admin hands a generated password to atelier staff)
+    # hashes/verifies the same either way.
+    pw = raw_password.strip().encode("utf-8")[:_BCRYPT_MAX_BYTES]
     return bcrypt.hashpw(pw, bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(raw_password: str, password_hash: str) -> bool:
-    pw = raw_password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
+    pw = raw_password.strip().encode("utf-8")[:_BCRYPT_MAX_BYTES]
     try:
         return bcrypt.checkpw(pw, password_hash.encode("utf-8"))
     except ValueError:

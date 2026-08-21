@@ -122,16 +122,19 @@ export default function AdminDiscountsPage() {
                       ) : usage && usage.by_user.length > 0 ? (
                         <div>
                           <p className="mb-2 text-xs font-bold text-navy">
-                            استفاده به تفکیک کاربر:
+                            دفعات تکرار استفاده به ازای هر کاربر:
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {usage.by_user.map((u) => (
                               <span
                                 key={u.phone}
-                                className="rounded-full bg-white px-3 py-1 text-xs font-bold text-navy"
-                                dir="ltr"
+                                className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-bold text-navy"
                               >
-                                {u.phone} × {u.count.toLocaleString("fa-IR")}
+                                <span dir="ltr">{u.phone}</span>
+                                <span className="text-muted">—</span>
+                                <span className="text-purple-deep">
+                                  {u.count.toLocaleString("fa-IR")} بار
+                                </span>
                               </span>
                             ))}
                           </div>
