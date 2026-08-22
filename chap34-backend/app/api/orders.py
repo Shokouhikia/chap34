@@ -15,7 +15,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app.api.deps import get_current_user
 from app.core.database import get_session
@@ -86,6 +86,21 @@ def create_order(
         code_row = db.exec(select(DiscountCode).where(DiscountCode.code == normalized_discount_code)).first()
         if not code_row or not code_row.active:
             raise HTTPException(status_code=400, detail="کد تخفیف نامعتبر یا غیرفعال است")
+        if code_row.max_uses_per_user is not None:
+            prior_uses = db.exec(
+                select(func.count())
+                .select_from(Order)
+                .where(
+                    Order.discount_code == normalized_discount_code,
+                    Order.user_id == user.id,
+                    Order.status != OrderStatus.CANCELLED,
+                )
+            ).one()
+            if prior_uses >= code_row.max_uses_per_user:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"این کد تخفیف حداکثر {code_row.max_uses_per_user} بار برای هر کاربر قابل استفاده است و قبلاً به این تعداد استفاده شده",
+                )
         discount_percent = code_row.percent
         discount_amount = round(print_amount * discount_percent / 100)
         print_amount = print_amount - discount_amount

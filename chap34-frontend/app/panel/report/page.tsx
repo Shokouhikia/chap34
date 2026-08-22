@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { panelApi, ReportFilters, ReportRow } from "@/lib/panelApi";
 import { statusLabel } from "@/lib/statusLabels";
+import OrderPhotoThumb from "@/components/OrderPhotoThumb";
 
 // Only the statuses the backend's FulfillmentStatus enum actually has -
 // lib/statusLabels.ts still carries a few retired ones (qc_*, sorting) that
@@ -210,9 +211,10 @@ export default function AtelierReportPage() {
       )}
 
       <div className="card overflow-x-auto p-0">
-        <table className="table-panel min-w-[1100px]">
+        <table className="table-panel min-w-[1200px]">
           <thead>
             <tr>
+              <th>عکس</th>
               <th>کد سفارش</th>
               <th>تاریخ</th>
               <th>گیرنده</th>
@@ -230,6 +232,20 @@ export default function AtelierReportPage() {
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
+                <td>
+                  <div className="flex flex-col items-center gap-1">
+                    <OrderPhotoThumb photoUrl={r.photo_url} alt={r.customer_name} />
+                    {r.photo_url && (
+                      <a
+                        href={panelApi.fileUrl(r.photo_url)}
+                        download
+                        className="text-[10px] font-bold text-purple-deep hover:underline"
+                      >
+                        دانلود
+                      </a>
+                    )}
+                  </div>
+                </td>
                 <td className="font-mono2 font-bold text-navy" dir="ltr">
                   {r.order_code}
                 </td>
@@ -266,7 +282,7 @@ export default function AtelierReportPage() {
             ))}
             {rows.length === 0 && !loading && (
               <tr>
-                <td colSpan={12} className="p-8 text-center text-sm text-muted">
+                <td colSpan={13} className="p-8 text-center text-sm text-muted">
                   سفارشی با این فیلترها پیدا نشد
                 </td>
               </tr>

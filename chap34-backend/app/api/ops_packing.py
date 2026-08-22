@@ -35,8 +35,10 @@ def checklist_template(_=Depends(require_staff_role(StaffRole.ATELIER))):
 @router.get("/pending")
 def pending(
     db: Session = Depends(get_session),
-    _=Depends(require_staff_role(StaffRole.ATELIER)),
+    staff=Depends(require_staff_role(StaffRole.ATELIER)),
 ):
+    from app.services import fulfillment
+
     orders = db.exec(
         select(Order).where(
             Order.fulfillment_status.in_(
@@ -44,6 +46,7 @@ def pending(
             )
         )
     ).all()
+    orders = fulfillment.filter_orders_by_province(db, staff, orders)
     result = []
     for order in orders:
         data = order_summary(db, order)

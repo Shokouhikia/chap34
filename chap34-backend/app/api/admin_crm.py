@@ -41,10 +41,12 @@ def get_dashboard(db: Session = Depends(get_session), _staff: StaffAccount = Dep
 
 def _order_summary(db: Session, order: Order) -> dict:
     user = db.get(User, order.user_id)
+    photo = db.get(Photo, order.photo_id)
     return {
         "id": order.id,
         "user_id": order.user_id,
         "user_phone": user.phone_number if user else None,
+        "photo_url": photo.result_file_url if photo else None,
         "quantity": order.quantity,
         "size": order.size.value,
         "paper_type": order.paper_type.value,

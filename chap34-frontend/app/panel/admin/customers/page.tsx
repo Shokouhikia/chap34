@@ -38,11 +38,31 @@ export default function AdminCustomersPage() {
 
         <h3 className="font-extrabold mb-2 text-[14.5px]">عکس‌ها ({selected.photos?.length})</h3>
         <div className="flex gap-3 flex-wrap">
-          {selected.photos?.map((p: any) => (
-            p.result_file_url
-              ? <img key={p.id} src={panelApi.fileUrl(p.result_file_url)} alt="" className="w-20 h-24 object-cover rounded-md2 border border-line" />
-              : <div key={p.id} className="w-20 h-24 rounded-md2 border border-line bg-purple-tint flex items-center justify-center text-xs text-muted">{p.status}</div>
-          ))}
+          {selected.photos?.map((p: any) =>
+            p.result_file_url ? (
+              <div key={p.id} className="flex flex-col items-center gap-1">
+                <img
+                  src={panelApi.fileUrl(p.result_file_url)}
+                  alt=""
+                  className="w-20 h-24 object-cover rounded-md2 border border-line"
+                />
+                <a
+                  href={panelApi.fileUrl(p.result_file_url)}
+                  download
+                  className="text-[10px] font-bold text-purple-deep hover:underline"
+                >
+                  دانلود
+                </a>
+              </div>
+            ) : (
+              <div
+                key={p.id}
+                className="w-20 h-24 rounded-md2 border border-line bg-purple-tint flex items-center justify-center text-xs text-muted"
+              >
+                {p.status}
+              </div>
+            )
+          )}
         </div>
       </div>
     );

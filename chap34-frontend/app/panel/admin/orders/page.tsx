@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { panelApi } from "@/lib/panelApi";
+import OrderPhotoThumb from "@/components/OrderPhotoThumb";
 
 // The admin screen edits the CUSTOMER-facing Order.status (not the atelier's
 // 11-stage fulfillment_status), so it keeps its own shorter vocabulary.
@@ -112,6 +113,7 @@ export default function AdminOrdersPage() {
         <table className="table-panel min-w-[820px]">
           <thead>
             <tr>
+              <th>عکس</th>
               <th>شناسه</th>
               <th>تاریخ</th>
               <th>تلفن</th>
@@ -126,6 +128,20 @@ export default function AdminOrdersPage() {
             {visible.map((o) => (
               <Fragment key={o.id}>
                 <tr>
+                  <td>
+                    <div className="flex flex-col items-center gap-1">
+                      <OrderPhotoThumb photoUrl={o.photo_url} alt={o.user_phone} />
+                      {o.photo_url && (
+                        <a
+                          href={panelApi.fileUrl(o.photo_url)}
+                          download
+                          className="text-[10px] font-bold text-purple-deep hover:underline"
+                        >
+                          دانلود
+                        </a>
+                      )}
+                    </div>
+                  </td>
                   <td className="font-mono2 font-bold text-navy" dir="ltr">
                     {o.id.slice(0, 8)}
                   </td>
@@ -158,7 +174,7 @@ export default function AdminOrdersPage() {
                 </tr>
                 {expanded === o.id && detail && (
                   <tr>
-                    <td colSpan={8} className="bg-purple-tint/30 !p-4">
+                    <td colSpan={9} className="bg-purple-tint/30 !p-4">
                       {detail.address && (
                         <p className="mb-3 text-[13px] text-muted">
                           آدرس: {detail.address.province}، {detail.address.city}،{" "}
@@ -214,7 +230,7 @@ export default function AdminOrdersPage() {
             ))}
             {visible.length === 0 && (
               <tr>
-                <td colSpan={8} className="p-8 text-center text-sm text-muted">
+                <td colSpan={9} className="p-8 text-center text-sm text-muted">
                   سفارشی با این فیلترها پیدا نشد
                 </td>
               </tr>

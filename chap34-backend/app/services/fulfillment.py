@@ -23,6 +23,28 @@ from app.models.order import FulfillmentStatus, Order
 from app.services.sheet_layout import SheetOrder
 
 
+def filter_orders_by_province(db: Session, staff, orders: list[Order]) -> list[Order]:
+    """The single place that decides "who can see which orders" by province.
+
+    Admins always see everything. An atelier account with no `provinces`
+    set (the default - None or []) is unrestricted too, so existing accounts
+    keep working exactly as before until an admin deliberately narrows one.
+    Used by every atelier-facing order list (queue, packing, shipments,
+    report) so the rule can't drift between screens.
+    """
+    from app.models.staff import StaffRole  # local import avoids a cycle
+
+    if staff.role != StaffRole.ATELIER or not staff.provinces:
+        return orders
+    allowed = set(staff.provinces)
+    kept = []
+    for order in orders:
+        address = db.get(Address, order.address_id)
+        if address and address.province in allowed:
+            kept.append(order)
+    return kept
+
+
 def load_photo_image(photo: "Photo | None") -> Image.Image | None:
     """Load a finished photo from its DB-stored bytes (see Photo model
     docstring - image data lives in Postgres, not local disk). Returns None

@@ -11,4 +11,7 @@ class DiscountCode(SQLModel, table=True):
     code: str = Field(unique=True, index=True, max_length=30)
     percent: int
     active: bool = Field(default=True)
+    # None = unlimited. Otherwise a customer can only redeem this code this
+    # many times (counted from their own non-cancelled orders).
+    max_uses_per_user: int | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)

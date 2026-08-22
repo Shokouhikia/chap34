@@ -105,13 +105,25 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_session), _s
 @router.get("/atelier-accounts")
 def list_atelier_accounts(db: Session = Depends(get_session), _staff: StaffAccount = Depends(require_admin)):
     rows = db.exec(select(StaffAccount).where(StaffAccount.role == StaffRole.ATELIER)).all()
-    return [{"id": r.id, "username": r.username, "name": r.name, "is_active": r.is_active, "created_at": r.created_at} for r in rows]
+    return [
+        {
+            "id": r.id,
+            "username": r.username,
+            "name": r.name,
+            "is_active": r.is_active,
+            "created_at": r.created_at,
+            "provinces": r.provinces or [],
+        }
+        for r in rows
+    ]
 
 
 class CreateAtelierAccount(BaseModel):
     name: str
     username: str
     password: str
+    # Empty/omitted = unrestricted (sees every province's orders).
+    provinces: list[str] | None = None
 
 
 @router.post("/atelier-accounts")
@@ -122,11 +134,17 @@ def create_atelier_account(body: CreateAtelierAccount, db: Session = Depends(get
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="این نام کاربری قبلاً استفاده شده")
-    account = StaffAccount(name=body.name.strip(), username=username, password_hash=hash_password(body.password), role=StaffRole.ATELIER)
+    account = StaffAccount(
+        name=body.name.strip(),
+        username=username,
+        password_hash=hash_password(body.password),
+        role=StaffRole.ATELIER,
+        provinces=body.provinces or None,
+    )
     db.add(account)
     db.commit()
     db.refresh(account)
-    return {"id": account.id, "username": account.username, "name": account.name}
+    return {"id": account.id, "username": account.username, "name": account.name, "provinces": account.provinces or []}
 
 
 @router.delete("/atelier-accounts/{account_id}")
@@ -145,6 +163,10 @@ class UpdateAtelierAccount(BaseModel):
     username: str | None = None
     password: str | None = None
     is_active: bool | None = None
+    # Sentinel-free: omit the field entirely to leave provinces untouched;
+    # pass [] explicitly to clear it back to unrestricted.
+    provinces: list[str] | None = None
+    provinces_set: bool = False
 
 
 @router.patch("/atelier-accounts/{account_id}")
@@ -173,11 +195,19 @@ def update_atelier_account(
         account.password_hash = hash_password(body.password)
     if body.is_active is not None:
         account.is_active = body.is_active
+    if body.provinces_set:
+        account.provinces = body.provinces or None
 
     db.add(account)
     db.commit()
     db.refresh(account)
-    return {"id": account.id, "username": account.username, "name": account.name, "is_active": account.is_active}
+    return {
+        "id": account.id,
+        "username": account.username,
+        "name": account.name,
+        "is_active": account.is_active,
+        "provinces": account.provinces or [],
+    }
 
 
 # ---- discount codes ----
@@ -231,17 +261,48 @@ def discount_code_usage(
 class CreateDiscountCode(BaseModel):
     code: str
     percent: int
+    # None = unlimited uses per customer.
+    max_uses_per_user: int | None = None
 
 
 @router.post("/discount-codes")
 def create_discount_code(body: CreateDiscountCode, db: Session = Depends(get_session), _staff: StaffAccount = Depends(require_admin)):
     if not (1 <= body.percent <= 100):
         raise HTTPException(status_code=400, detail="درصد تخفیف باید بین ۱ تا ۱۰۰ باشد")
+    if body.max_uses_per_user is not None and body.max_uses_per_user < 1:
+        raise HTTPException(status_code=400, detail="دفعات مجاز استفاده باید حداقل ۱ باشد")
     code = body.code.strip().upper()
     existing = db.exec(select(DiscountCode).where(DiscountCode.code == code)).first()
     if existing:
         raise HTTPException(status_code=400, detail="این کد تخفیف قبلاً ساخته شده")
-    row = DiscountCode(code=code, percent=body.percent, active=True)
+    row = DiscountCode(
+        code=code, percent=body.percent, active=True, max_uses_per_user=body.max_uses_per_user
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+class UpdateDiscountCode(BaseModel):
+    max_uses_per_user: int | None = None
+    max_uses_per_user_set: bool = False
+
+
+@router.patch("/discount-codes/{code_id}")
+def update_discount_code(
+    code_id: str,
+    body: UpdateDiscountCode,
+    db: Session = Depends(get_session),
+    _staff: StaffAccount = Depends(require_admin),
+):
+    row = db.get(DiscountCode, code_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="کد یافت نشد")
+    if body.max_uses_per_user_set:
+        if body.max_uses_per_user is not None and body.max_uses_per_user < 1:
+            raise HTTPException(status_code=400, detail="دفعات مجاز استفاده باید حداقل ۱ باشد")
+        row.max_uses_per_user = body.max_uses_per_user
     db.add(row)
     db.commit()
     db.refresh(row)

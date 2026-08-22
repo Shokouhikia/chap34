@@ -46,7 +46,7 @@ def list_orders(
     stage: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
 ):
-    all_orders = db.exec(_atelier_orders_query()).all()
+    all_orders = fulfillment.filter_orders_by_province(db, staff, db.exec(_atelier_orders_query()).all())
     counts = count_by_stage([o.fulfillment_status for o in all_orders])
 
     filtered = all_orders

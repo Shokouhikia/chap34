@@ -51,7 +51,7 @@ def _pdf_response(payload: bytes, media_type: str, filename: str) -> Response:
 @router.get("/shipments/packable")
 def packable(
     db: Session = Depends(get_session),
-    _=Depends(require_staff_role(StaffRole.ATELIER)),
+    staff=Depends(require_staff_role(StaffRole.ATELIER)),
 ):
     orders = db.exec(
         select(Order).where(
@@ -59,6 +59,7 @@ def packable(
             Order.shipment_id == None,  # noqa: E711
         )
     ).all()
+    orders = fulfillment.filter_orders_by_province(db, staff, orders)
     return {"total": len(orders), "orders": [order_summary(db, o) for o in orders]}
 
 

@@ -64,8 +64,15 @@ def render_shipping_label(data: LabelData) -> Image.Image:
     draw.text((right, y), shape_fa(f"{data.province} - {data.city}"), font=get_font(34), fill=_INK, anchor="ra")
     y += 60
 
-    # Wrap the free-form address across lines.
-    for chunk in _wrap(data.full_address, 42):
+    # Wrap the free-form address across lines, capped so an unusually long
+    # address can never push the postal code/phone/tracking lines below the
+    # label's fixed height - the last visible line gets a "…" instead.
+    address_lines = _wrap(data.full_address, 42)
+    max_lines = 4
+    if len(address_lines) > max_lines:
+        address_lines = address_lines[:max_lines]
+        address_lines[-1] = address_lines[-1].rstrip() + " …"
+    for chunk in address_lines:
         draw.text((right, y), shape_fa(chunk), font=get_font(32), fill=_INK, anchor="ra")
         y += 48
     y += 20
@@ -82,8 +89,34 @@ def render_shipping_label(data: LabelData) -> Image.Image:
 
 
 def render_labels_pdf_pages(labels: list[LabelData]) -> list[Image.Image]:
-    """All of a shipment's labels, one page each (BRD 5.8 #5)."""
-    return [render_shipping_label(d) for d in labels]
+    """A shipment/batch's labels packed 2x2 onto A4 sheets (BRD 5.8 #5),
+    instead of wasting one full 10x15 page per single address. Each label
+    keeps its own fixed cell, so one never splits across a page boundary -
+    a page just holds fewer labels once it's full."""
+    if not labels:
+        return []
+
+    cols, rows = 2, 2
+    per_page = cols * rows
+    cell_w, cell_h = _LABEL_SIZE
+    gap = 30
+
+    page_w = cell_w * cols + gap * (cols + 1)
+    page_h = cell_h * rows + gap * (rows + 1)
+
+    pages: list[Image.Image] = []
+    for start in range(0, len(labels), per_page):
+        chunk = labels[start:start + per_page]
+        page = Image.new("RGB", (page_w, page_h), _BG)
+        draw = ImageDraw.Draw(page)
+        for i, data in enumerate(chunk):
+            col, row = i % cols, i // cols
+            x = gap + col * (cell_w + gap)
+            y = gap + row * (cell_h + gap)
+            page.paste(render_shipping_label(data), (x, y))
+            draw.rectangle([x, y, x + cell_w, y + cell_h], outline=_LINE, width=2)
+        pages.append(page)
+    return pages
 
 
 def render_post_delivery_list(

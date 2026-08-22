@@ -19,8 +19,7 @@ const ADMIN_NAV = [
 const ATELIER_NAV = [
   { href: "/panel/atelier/orders", label: "سفارش‌ها" },
   { href: "/panel/atelier/batches", label: "بچ‌های چاپ" },
-  { href: "/panel/atelier/packing", label: "بسته‌بندی" },
-  { href: "/panel/atelier/shipments", label: "ارسال" },
+  { href: "/panel/atelier/packing", label: "بسته‌بندی و ارسال" },
   { href: "/panel/report", label: "گزارش سفارشات" },
   { href: "/panel/atelier/change-password", label: "تغییر رمز" },
 ];

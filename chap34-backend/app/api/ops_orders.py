@@ -28,14 +28,16 @@ router = APIRouter(prefix="/api/ops", tags=["ops-orders"])
 @router.get("/orders")
 def list_orders(
     db: Session = Depends(get_session),
-    _=Depends(require_staff_role(StaffRole.ATELIER)),
+    staff=Depends(require_staff_role(StaffRole.ATELIER)),
     search: str | None = Query(default=None),
     status: str | None = Query(default=None),
     exclude_batched: bool = Query(default=True),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=30, ge=1, le=100),
 ):
-    orders = db.exec(select(Order)).all()
+    from app.services import fulfillment
+
+    orders = fulfillment.filter_orders_by_province(db, staff, db.exec(select(Order)).all())
 
     # Once an order is in a print batch it has been handed off to the batches
     # screen, so it drops out of the "to process" queue by default. Callers
@@ -87,6 +89,7 @@ def _parse_day(value: str | None, field: str) -> datetime | None:
 
 
 def _report_filters(
+    staff,
     phone: str | None,
     name: str | None,
     status: str | None,
@@ -96,6 +99,12 @@ def _report_filters(
     """Build the SQL conditions shared by the JSON report and its CSV export,
     so the exported file always matches exactly what's on screen."""
     conditions = []
+
+    # Admin sees every province; an atelier account only sees the provinces
+    # it's been granted (unrestricted if none were assigned) - see
+    # fulfillment.filter_orders_by_province for the same rule elsewhere.
+    if staff.role == StaffRole.ATELIER and staff.provinces:
+        conditions.append(Address.province.in_(staff.provinces))
 
     if status and status != "all":
         try:
@@ -146,8 +155,9 @@ def _report_row(db: Session, order: Order, address: Address, user: User) -> dict
 def orders_report(
     db: Session = Depends(get_session),
     # Admin sees the report too (it's the follow-up/lookup screen for the
-    # whole shop); the rest of /api/ops stays atelier-only.
-    _=Depends(require_staff_role(StaffRole.ATELIER, StaffRole.ADMIN)),
+    # whole shop, unrestricted by province); the rest of /api/ops stays
+    # atelier-only.
+    staff=Depends(require_staff_role(StaffRole.ATELIER, StaffRole.ADMIN)),
     phone: str | None = Query(default=None),
     name: str | None = Query(default=None),
     status: str | None = Query(default=None),
@@ -158,7 +168,7 @@ def orders_report(
 ):
     """Full order report for atelier follow-up. Unlike `list_orders`, this
     filters and paginates in SQL rather than loading the whole table."""
-    conditions = _report_filters(phone, name, status, date_from, date_to)
+    conditions = _report_filters(staff, phone, name, status, date_from, date_to)
 
     total = db.exec(
         select(func.count())
@@ -243,7 +253,7 @@ def _csv_value(key: str, data: dict):
 @router.get("/orders/report.csv")
 def orders_report_csv(
     db: Session = Depends(get_session),
-    _=Depends(require_staff_role(StaffRole.ATELIER, StaffRole.ADMIN)),
+    staff=Depends(require_staff_role(StaffRole.ATELIER, StaffRole.ADMIN)),
     phone: str | None = Query(default=None),
     name: str | None = Query(default=None),
     status: str | None = Query(default=None),
@@ -251,7 +261,7 @@ def orders_report_csv(
     date_to: str | None = Query(default=None),
 ):
     """Same filters as /orders/report, unpaginated, as a CSV for Excel."""
-    conditions = _report_filters(phone, name, status, date_from, date_to)
+    conditions = _report_filters(staff, phone, name, status, date_from, date_to)
 
     rows = db.exec(
         select(Order, Address, User)

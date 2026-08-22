@@ -329,30 +329,58 @@ export const panelApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
-  listAtelierAccounts: () => request("/api/admin/atelier-accounts"),
-  createAtelierAccount: (name: string, username: string, password: string) =>
+  listAtelierAccounts: () =>
+    request("/api/admin/atelier-accounts") as Promise<
+      {
+        id: string;
+        username: string;
+        name: string;
+        is_active: boolean;
+        created_at: string;
+        provinces: string[];
+      }[]
+    >,
+  /** provinces omitted/empty = unrestricted (sees every province's orders). */
+  createAtelierAccount: (name: string, username: string, password: string, provinces?: string[]) =>
     request("/api/admin/atelier-accounts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, username, password }),
+      body: JSON.stringify({ name, username, password, provinces: provinces?.length ? provinces : null }),
     }),
   updateAtelierAccount: (
     id: string,
-    body: { name?: string; username?: string; password?: string; is_active?: boolean }
+    body: {
+      name?: string;
+      username?: string;
+      password?: string;
+      is_active?: boolean;
+      /** Pass to change province access; omit to leave it untouched, [] to clear to unrestricted. */
+      provinces?: string[];
+    }
   ) =>
     request(`/api/admin/atelier-accounts/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(
+        body.provinces !== undefined
+          ? { ...body, provinces_set: true }
+          : body
+      ),
     }),
   deactivateAtelierAccount: (id: string) =>
     request(`/api/admin/atelier-accounts/${id}`, { method: "DELETE" }),
   listDiscountCodes: () => request("/api/admin/discount-codes"),
-  createDiscountCode: (code: string, percent: number) =>
+  createDiscountCode: (code: string, percent: number, max_uses_per_user?: number | null) =>
     request("/api/admin/discount-codes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, percent }),
+      body: JSON.stringify({ code, percent, max_uses_per_user: max_uses_per_user ?? null }),
+    }),
+  updateDiscountCodeLimit: (id: string, max_uses_per_user: number | null) =>
+    request(`/api/admin/discount-codes/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ max_uses_per_user, max_uses_per_user_set: true }),
     }),
   toggleDiscountCode: (id: string) =>
     request(`/api/admin/discount-codes/${id}/toggle`, { method: "PATCH" }),
