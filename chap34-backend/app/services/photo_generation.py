@@ -12,11 +12,12 @@ than bypassed with another fallback.
 
 Outfit swapping (`outfit_type`) is applied via the same generative image
 call as the background replacement - one combined prompt, one API call -
-rather than a separate pixel-editing step. Only `outfit_type == "tshirt"`
-is implemented; every other value (including "no_change" and the other
-options the gender-settings UI offers - blazer, shirt, suit, no_hijab,
-maghnaeh, shawl, scarf) falls back to leaving the original clothing
-untouched, same as before this was added.
+rather than a separate pixel-editing step. `outfit_type == "tshirt"` asks
+for a specific plain t-shirt; every other value (including "no_change" and
+the other options the gender-settings UI offers - blazer, shirt, suit,
+no_hijab, maghnaeh, shawl, scarf) falls back to the prompt's generic
+"replace with simple formal clothing if unsuitable" instruction, same as
+a passport-photo studio would ask of a sitter.
 """
 import base64
 import time
@@ -70,54 +71,101 @@ class PhotoGenerationError(Exception):
 
 def _generation_prompt(background_color: str, outfit_type: str) -> str:
     """
-    Builds the single prompt sent to the generative image model for both
-    the background swap and, when requested, the outfit swap - there's no
-    separate local image-processing step for either; both are the model's
-    job. The face/head-angle preservation paragraph is unconditional and
-    always appended, because the model has been observed to "helpfully"
-    straighten a tilted head or flatten an expression while it's busy
-    repainting the background/clothing, which is exactly what must NOT
-    happen for an ID-style photo.
+    Builds the single prompt sent to the generative image model for the
+    full passport/ID-photo transform - background, lighting/exposure
+    correction, glasses removal, expression/pose normalization, and
+    (when requested) the outfit swap - in one shot, no separate local
+    image-processing step for any of it.
+
+    Unlike an earlier version of this prompt, this one deliberately asks
+    the model to straighten a tilted head and neutralize an exaggerated
+    source expression (open-mouth grin, raised eyebrows, ...) rather than
+    preserve them verbatim - a literal "keep whatever expression was
+    captured" instruction was producing unusable ID photos out of casual
+    test selfies. Identity preservation (same face, not a different
+    person) stays the non-negotiable constraint throughout.
     """
     color_name = background_color if background_color in BACKGROUND_COLORS else "white"
     r, g, b = BACKGROUND_COLORS[color_name]
     hex_color = f"#{r:02x}{g:02x}{b:02x}"
 
-    background_part = (
-        f"Replace only the background of this headshot photo with a flat, "
-        f"uniform solid {color_name} color ({hex_color}), like a passport/ID "
-        f"photo backdrop."
-    )
-
     if outfit_type == "tshirt":
-        clothing_part = (
-            "Also replace the person's visible clothing with a plain, solid "
+        clothing_instruction = (
+            "Replace the person's visible clothing with a plain, solid "
             "light-gray crew-neck t-shirt with no text, logo, or pattern - "
-            "suitable for a formal ID/passport photo. Keep the person's head, "
-            "face, hair, expression, and pose completely unchanged; only the "
-            "upper-body clothing changes."
+            "suitable for a formal ID/passport photo. Keep the clothing "
+            "realistic and proportional to the person's body."
         )
     else:
-        clothing_part = (
-            "Keep the person, their pose, framing, and clothing completely "
-            "unchanged - do not alter the subject at all."
+        clothing_instruction = (
+            "If the clothing is unsuitable for an official ID photo, "
+            "naturally replace it with simple formal clothing, preferably "
+            "a dark formal jacket with a plain white shirt. Keep the "
+            "clothing realistic and proportional to the person's body."
         )
 
-    face_preservation_part = (
-        "Preserve the person's exact facial expression exactly as captured in "
-        "the original photo, whatever it is - whether smiling, neutral, "
-        "serious, mouth open or closed, eyes open or closed, wearing glasses "
-        "or not. Also preserve the exact head and face angle/tilt from the "
-        "original photo - if the head or face is tilted or turned in the "
-        "source image, keep that same tilt and angle in the output; do NOT "
-        "straighten, re-center, or rotate the head to face forward. Do not "
-        "smooth, beautify, symmetrize, or in any way modify the face, its "
-        "expression, or its angle. The face and head orientation must remain "
-        "identical to the source photo; only the background and (if "
-        "requested) the clothing may change."
+    return (
+        "Transform the input photo into a professional, realistic 3×4 "
+        "passport/ID photo.\n\n"
+        "Keep the person's identity and facial features highly consistent "
+        "with the original image. Preserve the person's natural face "
+        "shape, eyes, eyebrows, nose, lips, jawline, ears, hair, mustache, "
+        "beard/stubble, skin tone, and other distinctive facial "
+        "characteristics.\n\n"
+        "Make the person's head and face face directly toward the camera. "
+        "If the original head is tilted, rotated, or slightly turned, "
+        "naturally correct the orientation so the face is straight and "
+        "front-facing. Do not create a different person or significantly "
+        "change the facial structure.\n\n"
+        "If the person is wearing glasses, remove the glasses completely "
+        "and naturally. Reconstruct any visible parts of the eyes or face "
+        "that were obscured by the glasses while maintaining the person's "
+        "actual appearance. Do not change the person's eye shape or "
+        "identity.\n\n"
+        "Keep the facial expression natural and suitable for an official "
+        "ID photo. Use a neutral, relaxed expression with the mouth "
+        "naturally closed and eyes open, unless doing so would "
+        "significantly alter the person's recognizable appearance.\n\n"
+        f"Replace the entire background with a perfectly flat, uniform "
+        f"solid {color_name} color ({hex_color}). Remove all objects, "
+        f"furniture, shadows, walls, and other elements from the original "
+        f"background.\n\n"
+        "Use even, professional studio lighting. Correct uneven lighting, "
+        "strong shadows, color casts, and exposure problems while keeping "
+        "the person's natural skin tone and facial texture.\n\n"
+        "Do not beautify the person. Do not excessively smooth the skin, "
+        "enlarge the eyes, reshape the nose, slim the face, modify the "
+        "jawline, change the lips, or apply beauty filters.\n\n"
+        f"{clothing_instruction}\n\n"
+        "Composition:\n\n"
+        "* Vertical 3:4 aspect ratio.\n"
+        "* Person centered horizontally.\n"
+        "* Head and upper shoulders visible.\n"
+        "* Face positioned naturally in the center of the frame.\n"
+        "* Adequate space above the head.\n"
+        "* Straight, front-facing head position.\n"
+        "* No artistic portrait composition.\n"
+        "* No dramatic perspective or camera angle.\n\n"
+        "The final result must look like a real photograph taken in a "
+        "professional passport/ID photo studio, not an AI-generated "
+        "portrait.\n\n"
+        "Output requirements:\n\n"
+        "* Exact 3:4 portrait aspect ratio.\n"
+        "* High resolution.\n"
+        "* Suitable for printing at 300 DPI.\n"
+        "* Approximately 354 × 472 pixels for a physical 3 × 4 cm "
+        "print at 300 DPI, or a higher-resolution equivalent while "
+        "maintaining the exact 3:4 ratio.\n"
+        f"* Pure {color_name} background ({hex_color}).\n"
+        "* No text.\n"
+        "* No logo.\n"
+        "* No watermark.\n"
+        "* No border or decorative frame.\n\n"
+        "IMPORTANT:\n"
+        "Prioritize preserving the person's identity over making cosmetic "
+        "improvements. The final face must remain clearly recognizable as "
+        "the same person in the input image."
     )
-
-    return f"{background_part} {clothing_part} {face_preservation_part}"
 
 
 def _call_openai_background_edit(image_bytes: bytes, background_color: str, outfit_type: str) -> bytes:
