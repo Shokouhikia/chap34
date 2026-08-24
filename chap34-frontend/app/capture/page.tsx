@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { NoFaceDetectedError, preprocessPhoto } from "@/lib/photoPreprocess";
+import CameraCapture from "@/components/CameraCapture";
 
 function CapturePageInner() {
   const router = useRouter();
@@ -17,13 +18,13 @@ function CapturePageInner() {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [preparing, setPreparing] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
 
-  async function handleFile(file: File | undefined) {
-    if (!file) return;
+  async function processImage(source: File | Blob) {
     setError(null);
     setPreparing(true);
     try {
-      const { blob, gender, genderConfidence } = await preprocessPhoto(file);
+      const { blob, gender, genderConfidence } = await preprocessPhoto(source);
       setPreparing(false);
       setUploading(true);
       const data = await api.uploadPhoto(blob, gender, genderConfidence);
@@ -41,6 +42,17 @@ function CapturePageInner() {
     }
   }
 
+  async function handleFile(file: File | undefined) {
+    if (!file) return;
+    await processImage(file);
+  }
+
+  function handleCameraFallback(message: string) {
+    setCameraActive(false);
+    setError(message);
+    cameraInputRef.current?.click();
+  }
+
   return (
     <div>
       <h2 className="mb-2 text-xl font-extrabold text-navy">
@@ -50,29 +62,43 @@ function CapturePageInner() {
         برای ساخت عکس پرسنلی، یکی از راه‌های زیر را انتخاب کنید.
       </p>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <button
-          onClick={() => cameraInputRef.current?.click()}
-          disabled={uploading || preparing}
-          className={`card flex flex-col items-center gap-3 py-10 transition hover:border-purple ${
-            mode === "camera" ? "border-purple" : ""
-          }`}
-        >
-          <span className="text-3xl">📷</span>
-          <b className="text-sm text-navy">گرفتن عکس با دوربین</b>
-        </button>
+      {cameraActive && !preparing && !uploading ? (
+        <div className="card">
+          <CameraCapture
+            onCapture={(blob) => processImage(blob)}
+            onFallback={handleCameraFallback}
+            onCancel={() => setCameraActive(false)}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <button
+            onClick={() => {
+              if (uploading || preparing) return;
+              setError(null);
+              setCameraActive(true);
+            }}
+            disabled={uploading || preparing}
+            className={`card flex flex-col items-center gap-3 py-10 transition hover:border-purple ${
+              mode === "camera" ? "border-purple" : ""
+            }`}
+          >
+            <span className="text-3xl">📷</span>
+            <b className="text-sm text-navy">گرفتن عکس با دوربین</b>
+          </button>
 
-        <button
-          onClick={() => galleryInputRef.current?.click()}
-          disabled={uploading || preparing}
-          className={`card flex flex-col items-center gap-3 py-10 transition hover:border-purple ${
-            mode === "gallery" ? "border-purple" : ""
-          }`}
-        >
-          <span className="text-3xl">🖼️</span>
-          <b className="text-sm text-navy">انتخاب از گالری</b>
-        </button>
-      </div>
+          <button
+            onClick={() => galleryInputRef.current?.click()}
+            disabled={uploading || preparing}
+            className={`card flex flex-col items-center gap-3 py-10 transition hover:border-purple ${
+              mode === "gallery" ? "border-purple" : ""
+            }`}
+          >
+            <span className="text-3xl">🖼️</span>
+            <b className="text-sm text-navy">انتخاب از گالری</b>
+          </button>
+        </div>
+      )}
 
       <input
         ref={cameraInputRef}

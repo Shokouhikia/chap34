@@ -29,7 +29,13 @@ export interface PreprocessResult {
 
 let modelsLoaded: Promise<void> | null = null;
 
-function loadModels(): Promise<void> {
+/**
+ * Loads the face-api.js models exactly once and caches the in-flight/
+ * resolved promise, so both the live camera preview (CameraCapture) and
+ * this module's own preprocessPhoto() can call it freely without paying
+ * for a second download.
+ */
+export function loadModels(): Promise<void> {
   if (!modelsLoaded) {
     modelsLoaded = Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
@@ -40,7 +46,7 @@ function loadModels(): Promise<void> {
   return modelsLoaded;
 }
 
-function loadImage(file: File): Promise<HTMLImageElement> {
+function loadImage(file: File | Blob): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
@@ -71,9 +77,10 @@ function canvasToJpegBlob(canvas: HTMLCanvasElement, quality: number): Promise<B
 /**
  * Detects the face in `file`, reads gender off it, crops to a generous
  * head-and-shoulders box, and downscales. Throws NoFaceDetectedError if no
- * face is found.
+ * face is found. Accepts a Blob too (e.g. a frame captured from the live
+ * camera preview via canvas.toBlob), not just a File from an <input>.
  */
-export async function preprocessPhoto(file: File): Promise<PreprocessResult> {
+export async function preprocessPhoto(file: File | Blob): Promise<PreprocessResult> {
   await loadModels();
 
   const img = await loadImage(file);
