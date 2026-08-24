@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { clearAccessToken, isLoggedIn } from "@/lib/api";
+import { clearAccessToken, isLoggedIn, savePendingRedirect } from "@/lib/api";
 
 export default function AccountLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -11,6 +11,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     if (!isLoggedIn()) {
+      savePendingRedirect(pathname);
       router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
       return;
     }

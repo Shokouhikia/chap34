@@ -4,18 +4,33 @@ import { Suspense } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { api } from "@/lib/api";
+import { api, clearPendingRedirect, getPendingRedirect } from "@/lib/api";
+
+const SLOW_HINT_DELAY_MS = 6000;
 
 function LoginOtpPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const phone = searchParams.get("phone") || "";
-  const redirect = searchParams.get("redirect") || "/account";
+  const redirect = searchParams.get("redirect") || getPendingRedirect() || "/account";
 
   const [digits, setDigits] = useState(["", "", "", ""]);
   const [loading, setLoading] = useState(false);
+  const [slowHint, setSlowHint] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+  // A ref (not the `loading` state) guards against the auto-submit effect
+  // and a manual button tap both firing verifyOtp for the same code: state
+  // updates aren't visible synchronously, so two calls in the same tick
+  // could both see loading === false and race.
+  const submittingRef = useRef(false);
+  const slowHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (slowHintTimer.current) clearTimeout(slowHintTimer.current);
+    };
+  }, []);
 
   function updateDigit(index: number, value: string) {
     if (!/^\d?$/.test(value)) return;
@@ -26,14 +41,22 @@ function LoginOtpPageInner() {
   }
 
   async function submit() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
+    setSlowHint(false);
     setError(null);
+    slowHintTimer.current = setTimeout(() => setSlowHint(true), SLOW_HINT_DELAY_MS);
     try {
       await api.verifyOtp(phone, digits.join(""));
+      clearPendingRedirect();
       router.push(redirect);
     } catch (err) {
       setError(err instanceof Error ? err.message : "کد اشتباه است");
+      submittingRef.current = false;
     } finally {
+      if (slowHintTimer.current) clearTimeout(slowHintTimer.current);
+      setSlowHint(false);
       setLoading(false);
     }
   }
@@ -74,6 +97,11 @@ function LoginOtpPageInner() {
         ))}
       </div>
 
+      {slowHint && (
+        <p className="mb-3 text-sm font-bold text-purple-deep">
+          سرور در حال بیدار شدن است، ممکن است تا ۴۰ ثانیه طول بکشد...
+        </p>
+      )}
       {error && <p className="mb-3 text-sm font-bold text-red-500">{error}</p>}
 
       <button onClick={submit} disabled={loading} className="btn-primary mb-3 w-full">

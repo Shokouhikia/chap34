@@ -26,19 +26,48 @@ export function isLoggedIn(): boolean {
   return !!getAccessToken();
 }
 
-// Render's free tier spins the backend down after ~15min idle; the first
-// request after that can fail at the network level (TypeError, not a real
-// HTTP error) while the container wakes up. One retry after a short wait
-// covers that case instead of surfacing a hard "server unreachable" error.
-const COLD_START_RETRY_DELAY_MS = 5000;
+// Backup for the "?redirect=" query param that carries the destination
+// through /login -> /login/otp -> back. A query param can get dropped if
+// the user backgrounds the browser mid-flow (mobile browsers sometimes
+// reload a backgrounded tab from a bare URL) or otherwise re-lands on
+// /login without it; sessionStorage survives that so login still lands
+// back where the user was trying to go instead of silently falling back
+// to the homepage.
+const PENDING_REDIRECT_KEY = "postLoginRedirect";
+
+export function savePendingRedirect(path: string) {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(PENDING_REDIRECT_KEY, path);
+}
+
+export function getPendingRedirect(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.sessionStorage.getItem(PENDING_REDIRECT_KEY);
+}
+
+export function clearPendingRedirect() {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(PENDING_REDIRECT_KEY);
+}
+
+// Render's free tier spins the backend down after ~15min idle, and a cold
+// boot can take 30-50s (not the few seconds a single short retry assumed).
+// A request that fails at the network level (TypeError, not a real HTTP
+// error) during that window is retried repeatedly with a fixed delay until
+// this budget is used up, instead of giving up after one 5s-delayed retry
+// and surfacing a hard "server unreachable" error while the container is
+// still just booting.
+const COLD_START_RETRY_DELAY_MS = 4000;
+const COLD_START_MAX_RETRIES = 11; // ~44s of retrying on top of the first attempt
 
 async function fetchWithRetry(url: string, options: RequestInit): Promise<Response> {
-  try {
-    return await fetch(url, options);
-  } catch (err) {
-    if (!(err instanceof TypeError)) throw err;
-    await new Promise((resolve) => setTimeout(resolve, COLD_START_RETRY_DELAY_MS));
-    return fetch(url, options);
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetch(url, options);
+    } catch (err) {
+      if (!(err instanceof TypeError) || attempt >= COLD_START_MAX_RETRIES) throw err;
+      await new Promise((resolve) => setTimeout(resolve, COLD_START_RETRY_DELAY_MS));
+    }
   }
 }
 
