@@ -17,9 +17,11 @@ KEY_SMS_API_KEY = "sms_api_key"
 KEY_SMS_USERNAME = "sms_username"
 KEY_SMS_PASSWORD = "sms_password"
 KEY_GOOGLE_AI_API_KEY = "google_ai_api_key"
-KEY_AI_PROVIDER = "ai_provider"  # "openrouter" | "openai" - used by the photo generation pipeline
+KEY_AI_PROVIDER = "ai_provider"  # "openrouter" | "openai" | "avalai" - used by the photo generation pipeline
 KEY_OPENROUTER_API_KEY = "openrouter_api_key"
 KEY_OPENROUTER_MODEL = "openrouter_model"
+KEY_AVALAI_API_KEY = "avalai_api_key"
+KEY_AVALAI_MODEL = "avalai_model"
 KEY_ZARINPAL_MERCHANT_ID = "zarinpal_merchant_id"
 KEY_BASE_URL = "base_url"
 
@@ -38,6 +40,7 @@ SECRET_KEYS = {
     KEY_GOOGLE_AI_API_KEY,
     KEY_ZARINPAL_MERCHANT_ID,
     KEY_OPENROUTER_API_KEY,
+    KEY_AVALAI_API_KEY,
 }
 
 # Curated OpenRouter models offered in the admin "هوش مصنوعی" picker. Value
@@ -60,6 +63,8 @@ DEFAULT_SETTINGS = {
     KEY_AI_PROVIDER: "openrouter",
     KEY_OPENROUTER_API_KEY: "",
     KEY_OPENROUTER_MODEL: DEFAULT_OPENROUTER_MODEL,
+    KEY_AVALAI_API_KEY: "",
+    KEY_AVALAI_MODEL: "gemini-3.1-flash-lite-image",
     KEY_BASE_URL: "",
     KEY_PRICE_BASE_QTY_6: "400000",
     KEY_PRICE_BASE_QTY_12: "600000",

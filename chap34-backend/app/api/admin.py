@@ -10,6 +10,8 @@ from app.models.order import Order, OrderStatus
 from app.models.user import User
 from app.models.setting import (
     KEY_AI_PROVIDER,
+    KEY_AVALAI_API_KEY,
+    KEY_AVALAI_MODEL,
     KEY_BASE_URL,
     KEY_GOOGLE_AI_API_KEY,
     KEY_OPENROUTER_API_KEY,
@@ -75,6 +77,8 @@ class SettingsUpdate(BaseModel):
     ai_provider: str | None = None
     openrouter_api_key: str | None = None
     openrouter_model: str | None = None
+    avalai_api_key: str | None = None
+    avalai_model: str | None = None
 
 
 @router.put("/settings")
@@ -98,6 +102,8 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_session), _s
         KEY_AI_PROVIDER: body.ai_provider or "",
         KEY_OPENROUTER_API_KEY: body.openrouter_api_key or "",
         KEY_OPENROUTER_MODEL: body.openrouter_model or "",
+        KEY_AVALAI_API_KEY: body.avalai_api_key or "",
+        KEY_AVALAI_MODEL: body.avalai_model or "",
     })
     return {"ok": True}
 

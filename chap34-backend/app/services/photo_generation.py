@@ -26,6 +26,8 @@ from app.core.config import settings
 from app.models.setting import (
     DEFAULT_OPENROUTER_MODEL,
     KEY_AI_PROVIDER,
+    KEY_AVALAI_API_KEY,
+    KEY_AVALAI_MODEL,
     KEY_OPENROUTER_API_KEY,
     KEY_OPENROUTER_MODEL,
 )
@@ -47,6 +49,8 @@ OPENAI_IMAGE_SIZE = "1024x1024"
 OPENAI_IMAGE_QUALITY = "low"
 
 OPENROUTER_IMAGES_URL = "https://openrouter.ai/api/v1/images"
+
+AVALAI_IMAGES_EDIT_URL = "https://api.avalai.ir/v1/images/edits"
 
 
 class PhotoGenerationError(Exception):
@@ -150,6 +154,45 @@ def _call_openai_background_edit(image_bytes: bytes, background_color: str) -> b
         raise PhotoGenerationError("پاسخ سرویس پردازش عکس نامعتبر بود") from exc
 
 
+def _call_avalai_background_edit(
+    image_bytes: bytes, background_color: str, api_key: str, model: str
+) -> bytes:
+    """
+    Same contract as `_call_openai_background_edit` but via AvalAI's
+    OpenAI-compatible Images edit endpoint (https://api.avalai.ir).
+    """
+    if not api_key:
+        raise PhotoGenerationError("AvalAI API Key در تنظیمات ادمین تنظیم نشده است")
+
+    try:
+        response = httpx.post(
+            AVALAI_IMAGES_EDIT_URL,
+            headers={"Authorization": f"Bearer {api_key}"},
+            data={
+                "model": model,
+                "prompt": _background_prompt(background_color),
+                "size": OPENAI_IMAGE_SIZE,
+                "quality": OPENAI_IMAGE_QUALITY,
+                "n": 1,
+            },
+            files={"image": ("photo.png", image_bytes, "image/png")},
+            timeout=60.0,
+        )
+    except httpx.HTTPError as exc:
+        raise PhotoGenerationError(f"اتصال به AvalAI برقرار نشد: {exc}") from exc
+
+    if response.status_code != 200:
+        raise PhotoGenerationError(
+            f"AvalAI خطا داد ({response.status_code}): {response.text[:500]}"
+        )
+
+    try:
+        b64_data = response.json()["data"][0]["b64_json"]
+        return base64.b64decode(b64_data)
+    except (KeyError, IndexError, ValueError) as exc:
+        raise PhotoGenerationError("پاسخ AvalAI نامعتبر بود") from exc
+
+
 def _ensure_exact_3x4(image: Image.Image) -> Image.Image:
     """
     Centered crop/pad so the output is always exactly 3:4, regardless of
@@ -203,6 +246,10 @@ def generate_id_photo(
     try:
         if provider == "openai":
             result_bytes = _call_openai_background_edit(image_bytes, background_color)
+        elif provider == "avalai":
+            api_key = settings_service.get_value(db, KEY_AVALAI_API_KEY)
+            model = settings_service.get_value(db, KEY_AVALAI_MODEL)
+            result_bytes = _call_avalai_background_edit(image_bytes, background_color, api_key, model)
         else:
             api_key = settings_service.get_value(db, KEY_OPENROUTER_API_KEY)
             model = settings_service.get_value(db, KEY_OPENROUTER_MODEL) or DEFAULT_OPENROUTER_MODEL

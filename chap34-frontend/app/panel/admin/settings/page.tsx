@@ -8,6 +8,7 @@ export default function AdminSettingsPage() {
   const [modelChoices, setModelChoices] = useState<Record<string, string>>({});
   const [form, setForm] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
+  const [providerChoice, setProviderChoice] = useState("openrouter");
 
   function load() {
     panelApi
@@ -15,6 +16,7 @@ export default function AdminSettingsPage() {
       .then((d) => {
         setSettings(d.settings);
         setModelChoices(d.openrouter_model_choices || {});
+        setProviderChoice(d.settings.ai_provider || "openrouter");
       })
       .catch(() => {});
   }
@@ -76,11 +78,15 @@ export default function AdminSettingsPage() {
           <label className="field-label mt-2">سرویس‌دهنده</label>
           <select
             defaultValue={settings.ai_provider || "openrouter"}
-            onChange={(e) => update("ai_provider", e.target.value)}
+            onChange={(e) => {
+              update("ai_provider", e.target.value);
+              setProviderChoice(e.target.value);
+            }}
             className="field-input mb-3"
           >
             <option value="openrouter">OpenRouter</option>
             <option value="openai">OpenAI</option>
+            <option value="avalai">AvalAI</option>
           </select>
 
           <label className="field-label">مدل OpenRouter</label>
@@ -102,6 +108,23 @@ export default function AdminSettingsPage() {
           <label className="field-label">OpenRouter API Key</label>
           <input onChange={(e) => update("openrouter_api_key", e.target.value)} className="field-input mb-1" placeholder="sk-or-v1-..." dir="ltr" />
           <p className="text-xs text-muted mb-3">{settings._has_openrouter_api_key ? `فعلی: ${settings.openrouter_api_key}` : "هنوز تنظیم نشده"}</p>
+
+          {providerChoice === "avalai" && (
+            <>
+              <label className="field-label">مدل AvalAI</label>
+              <input
+                defaultValue={settings.avalai_model}
+                onChange={(e) => update("avalai_model", e.target.value)}
+                className="field-input mb-3"
+                placeholder="gemini-3.1-flash-lite-image"
+                dir="ltr"
+              />
+
+              <label className="field-label">AvalAI API Key</label>
+              <input onChange={(e) => update("avalai_api_key", e.target.value)} className="field-input mb-1" placeholder="aa-..." dir="ltr" />
+              <p className="text-xs text-muted mb-3">{settings._has_avalai_api_key ? `فعلی: ${settings.avalai_api_key}` : "هنوز تنظیم نشده"}</p>
+            </>
+          )}
 
           <label className="field-label">Google AI Studio API Key (برای حالت OpenAI استفاده نمی‌شود)</label>
           <input onChange={(e) => update("google_ai_api_key", e.target.value)} className="field-input mb-1" placeholder="کلید API" />
