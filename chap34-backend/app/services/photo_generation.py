@@ -50,7 +50,14 @@ OPENAI_IMAGE_QUALITY = "low"
 
 OPENROUTER_IMAGES_URL = "https://openrouter.ai/api/v1/images"
 
-AVALAI_IMAGES_EDIT_URL = "https://api.avalai.ir/v1/images/edits"
+
+# AvalAI proxies OpenAI's own image models on /v1/images/edits, but Gemini
+# image models ("gemini-*-image") are only reachable through its
+# OpenAI-compatible /v1/chat/completions endpoint with modalities=
+# ["image","text"] - confirmed against AvalAI's own docs after a live probe
+# of /v1/images/edits with a Gemini model returned "unsupported_model" for
+# that path regardless of API key permissions.
+AVALAI_CHAT_COMPLETIONS_URL = "https://api.avalai.ir/v1/chat/completions"
 
 
 class PhotoGenerationError(Exception):
@@ -158,24 +165,40 @@ def _call_avalai_background_edit(
     image_bytes: bytes, background_color: str, api_key: str, model: str
 ) -> bytes:
     """
-    Same contract as `_call_openai_background_edit` but via AvalAI's
-    OpenAI-compatible Images edit endpoint (https://api.avalai.ir).
+    Same contract as `_call_openai_background_edit`/`_call_openrouter_background_edit`
+    but via AvalAI's chat-completions endpoint, which is how it fronts
+    Gemini's image models (see the AVALAI_CHAT_COMPLETIONS_URL comment).
+    The input photo rides along as an image_url content part next to the
+    text prompt; modalities=["image","text"] asks for an image back.
     """
     if not api_key:
         raise PhotoGenerationError("AvalAI API Key در تنظیمات ادمین تنظیم نشده است")
 
+    b64_input = base64.b64encode(image_bytes).decode("ascii")
+
     try:
         response = httpx.post(
-            AVALAI_IMAGES_EDIT_URL,
-            headers={"Authorization": f"Bearer {api_key}"},
-            data={
-                "model": model,
-                "prompt": _background_prompt(background_color),
-                "size": OPENAI_IMAGE_SIZE,
-                "quality": OPENAI_IMAGE_QUALITY,
-                "n": 1,
+            AVALAI_CHAT_COMPLETIONS_URL,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
             },
-            files={"image": ("photo.png", image_bytes, "image/png")},
+            json={
+                "model": model,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": _background_prompt(background_color)},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/png;base64,{b64_input}"},
+                            },
+                        ],
+                    }
+                ],
+                "modalities": ["image", "text"],
+            },
             timeout=60.0,
         )
     except httpx.HTTPError as exc:
@@ -187,7 +210,9 @@ def _call_avalai_background_edit(
         )
 
     try:
-        b64_data = response.json()["data"][0]["b64_json"]
+        image_url = response.json()["choices"][0]["message"]["images"][0]["image_url"]["url"]
+        # image_url is a data: URI ("data:image/png;base64,...").
+        b64_data = image_url.split(",", 1)[1]
         return base64.b64decode(b64_data)
     except (KeyError, IndexError, ValueError) as exc:
         raise PhotoGenerationError("پاسخ AvalAI نامعتبر بود") from exc
