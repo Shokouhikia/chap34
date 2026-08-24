@@ -9,13 +9,12 @@ from app.models.discount import DiscountCode
 from app.models.order import Order, OrderStatus
 from app.models.user import User
 from app.models.setting import (
+    AVALAI_MODEL_CHOICES,
     KEY_AI_PROVIDER,
     KEY_AVALAI_API_KEY,
     KEY_AVALAI_MODEL,
     KEY_BASE_URL,
     KEY_GOOGLE_AI_API_KEY,
-    KEY_OPENROUTER_API_KEY,
-    KEY_OPENROUTER_MODEL,
     KEY_PAPER_MULTIPLIER_GLOSSY,
     KEY_PAPER_MULTIPLIER_MATTE,
     KEY_PRICE_BASE_QTY_12,
@@ -29,7 +28,6 @@ from app.models.setting import (
     KEY_SMS_PROVIDER,
     KEY_SMS_USERNAME,
     KEY_ZARINPAL_MERCHANT_ID,
-    OPENROUTER_MODEL_CHOICES,
     SECRET_KEYS,
 )
 from app.models.staff import StaffAccount, StaffRole
@@ -52,9 +50,9 @@ def get_settings(db: Session = Depends(get_session), _staff: StaffAccount = Depe
     return {
         "settings": out,
         # Single source of truth for the model dropdown in the admin UI -
-        # keeps the curated OpenRouter model list defined only in
+        # keeps the curated AvalAI model list defined only in
         # app.models.setting.
-        "openrouter_model_choices": OPENROUTER_MODEL_CHOICES,
+        "avalai_model_choices": AVALAI_MODEL_CHOICES,
     }
 
 
@@ -75,8 +73,6 @@ class SettingsUpdate(BaseModel):
     paper_multiplier_matte: str | None = None
     shipping_cost: str | None = None
     ai_provider: str | None = None
-    openrouter_api_key: str | None = None
-    openrouter_model: str | None = None
     avalai_api_key: str | None = None
     avalai_model: str | None = None
 
@@ -100,8 +96,6 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_session), _s
         KEY_PAPER_MULTIPLIER_MATTE: body.paper_multiplier_matte or "",
         KEY_SHIPPING_COST: body.shipping_cost or "",
         KEY_AI_PROVIDER: body.ai_provider or "",
-        KEY_OPENROUTER_API_KEY: body.openrouter_api_key or "",
-        KEY_OPENROUTER_MODEL: body.openrouter_model or "",
         KEY_AVALAI_API_KEY: body.avalai_api_key or "",
         KEY_AVALAI_MODEL: body.avalai_model or "",
     })

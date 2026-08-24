@@ -8,8 +8,9 @@ uploaded, so `upload_photo` accepts an optional client-detected gender and
 male default if the client couldn't supply one (JS blocked/failed).
 
 `generate_photo` replaces the background via the admin-configured AI
-provider/model (see app.services.photo_generation - OpenRouter, e.g. Google
-"Nano Banana", is the default; OpenAI is a selectable fallback) and crops
+provider/model (see app.services.photo_generation - AvalAI, i.e. Google
+Gemini's image models, is the default; OpenAI is a selectable alternative)
+and crops
 the result to an exact 3:4 headshot. `outfit_type` is NOT yet applied to
 the pixels — swapping actual garments needs a generative model, which is
 future work; the requested value is stored in `ai_meta` so the UI keeps

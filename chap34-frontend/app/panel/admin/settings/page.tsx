@@ -8,15 +8,15 @@ export default function AdminSettingsPage() {
   const [modelChoices, setModelChoices] = useState<Record<string, string>>({});
   const [form, setForm] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
-  const [providerChoice, setProviderChoice] = useState("openrouter");
+  const [providerChoice, setProviderChoice] = useState("avalai");
 
   function load() {
     panelApi
       .getAdminSettings()
       .then((d) => {
         setSettings(d.settings);
-        setModelChoices(d.openrouter_model_choices || {});
-        setProviderChoice(d.settings.ai_provider || "openrouter");
+        setModelChoices(d.avalai_model_choices || {});
+        setProviderChoice(d.settings.ai_provider || "avalai");
       })
       .catch(() => {});
   }
@@ -77,48 +77,31 @@ export default function AdminSettingsPage() {
 
           <label className="field-label mt-2">سرویس‌دهنده</label>
           <select
-            defaultValue={settings.ai_provider || "openrouter"}
+            defaultValue={settings.ai_provider || "avalai"}
             onChange={(e) => {
               update("ai_provider", e.target.value);
               setProviderChoice(e.target.value);
             }}
             className="field-input mb-3"
           >
-            <option value="openrouter">OpenRouter</option>
-            <option value="openai">OpenAI</option>
             <option value="avalai">AvalAI</option>
+            <option value="openai">OpenAI</option>
           </select>
-
-          <label className="field-label">مدل OpenRouter</label>
-          <select
-            defaultValue={settings.openrouter_model || Object.keys(modelChoices)[0]}
-            onChange={(e) => update("openrouter_model", e.target.value)}
-            className="field-input mb-1"
-          >
-            {Object.entries(modelChoices).map(([slug, label]) => (
-              <option key={slug} value={slug}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-muted mb-3">
-            وقتی سرویس‌دهنده OpenRouter باشد استفاده می‌شود. Seedance عمدتاً مدل ویدیوست؛ اگر ادیت عکس رو پشتیبانی نکرد، گزینهٔ نانو بنانا را انتخاب کنید.
-          </p>
-
-          <label className="field-label">OpenRouter API Key</label>
-          <input onChange={(e) => update("openrouter_api_key", e.target.value)} className="field-input mb-1" placeholder="sk-or-v1-..." dir="ltr" />
-          <p className="text-xs text-muted mb-3">{settings._has_openrouter_api_key ? `فعلی: ${settings.openrouter_api_key}` : "هنوز تنظیم نشده"}</p>
 
           {providerChoice === "avalai" && (
             <>
               <label className="field-label">مدل AvalAI</label>
-              <input
-                defaultValue={settings.avalai_model}
+              <select
+                defaultValue={settings.avalai_model || Object.keys(modelChoices)[0]}
                 onChange={(e) => update("avalai_model", e.target.value)}
                 className="field-input mb-3"
-                placeholder="gemini-3.1-flash-lite-image"
-                dir="ltr"
-              />
+              >
+                {Object.entries(modelChoices).map(([slug, label]) => (
+                  <option key={slug} value={slug}>
+                    {label}
+                  </option>
+                ))}
+              </select>
 
               <label className="field-label">AvalAI API Key</label>
               <input onChange={(e) => update("avalai_api_key", e.target.value)} className="field-input mb-1" placeholder="aa-..." dir="ltr" />

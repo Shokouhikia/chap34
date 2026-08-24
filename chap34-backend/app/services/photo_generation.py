@@ -1,6 +1,6 @@
 """
-Photo-generation pipeline: background removal/replacement via the OpenAI
-Images API, then a final deterministic 3:4 crop.
+Photo-generation pipeline: background removal/replacement via the
+admin-configured AI provider, then a final deterministic 3:4 crop.
 
 Face detection, gender detection, EXIF-rotation and the initial head-and-
 shoulders crop all happen client-side in the browser now (see
@@ -16,6 +16,7 @@ someone is wearing needs a generative model (diffusion inpainting / virtual
 try-on); this module only handles background replacement.
 """
 import base64
+import time
 from io import BytesIO
 
 import httpx
@@ -24,12 +25,10 @@ from sqlmodel import Session
 
 from app.core.config import settings
 from app.models.setting import (
-    DEFAULT_OPENROUTER_MODEL,
+    DEFAULT_AVALAI_MODEL,
     KEY_AI_PROVIDER,
     KEY_AVALAI_API_KEY,
     KEY_AVALAI_MODEL,
-    KEY_OPENROUTER_API_KEY,
-    KEY_OPENROUTER_MODEL,
 )
 from app.services import settings_service
 
@@ -48,9 +47,6 @@ OPENAI_IMAGES_EDIT_URL = "https://api.openai.com/v1/images/edits"
 OPENAI_IMAGE_SIZE = "1024x1024"
 OPENAI_IMAGE_QUALITY = "low"
 
-OPENROUTER_IMAGES_URL = "https://openrouter.ai/api/v1/images"
-
-
 # AvalAI proxies OpenAI's own image models on /v1/images/edits, but Gemini
 # image models ("gemini-*-image") are only reachable through its
 # OpenAI-compatible /v1/chat/completions endpoint with modalities=
@@ -58,6 +54,11 @@ OPENROUTER_IMAGES_URL = "https://openrouter.ai/api/v1/images"
 # of /v1/images/edits with a Gemini model returned "unsupported_model" for
 # that path regardless of API key permissions.
 AVALAI_CHAT_COMPLETIONS_URL = "https://api.avalai.ir/v1/chat/completions"
+# AvalAI's gateway has been observed to return a transient 5xx (its own
+# "internal_server_error"/Cloudflare 504) on an otherwise-valid request; one
+# retry after a short wait clears this most of the time (seen live twice).
+AVALAI_RETRY_ATTEMPTS = 2
+AVALAI_RETRY_DELAY_S = 3.0
 
 
 class PhotoGenerationError(Exception):
@@ -72,54 +73,6 @@ def _background_prompt(background_color: str) -> str:
         f"Keep the person, their pose, framing, and clothing completely "
         f"unchanged - do not alter the subject at all."
     )
-
-
-def _call_openrouter_background_edit(
-    image_bytes: bytes, background_color: str, api_key: str, model: str
-) -> bytes:
-    """
-    Same contract as `_call_openai_background_edit` but via OpenRouter's
-    unified Image API (https://openrouter.ai/docs/guides/overview/multimodal/image-generation),
-    which fronts many providers/models (Google Gemini "Nano Banana" family,
-    ByteDance Seedance, etc.) behind one request/response shape.
-    """
-    if not api_key:
-        raise PhotoGenerationError("OpenRouter API Key در تنظیمات ادمین تنظیم نشده است")
-
-    b64_input = base64.b64encode(image_bytes).decode("ascii")
-
-    try:
-        response = httpx.post(
-            OPENROUTER_IMAGES_URL,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": model,
-                "prompt": _background_prompt(background_color),
-                "input_references": [
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/png;base64,{b64_input}"},
-                    }
-                ],
-            },
-            timeout=60.0,
-        )
-    except httpx.HTTPError as exc:
-        raise PhotoGenerationError(f"اتصال به OpenRouter برقرار نشد: {exc}") from exc
-
-    if response.status_code != 200:
-        raise PhotoGenerationError(
-            f"OpenRouter خطا داد ({response.status_code}): {response.text[:500]}"
-        )
-
-    try:
-        b64_data = response.json()["data"][0]["b64_json"]
-        return base64.b64decode(b64_data)
-    except (KeyError, IndexError, ValueError) as exc:
-        raise PhotoGenerationError("پاسخ OpenRouter نامعتبر بود") from exc
 
 
 def _call_openai_background_edit(image_bytes: bytes, background_color: str) -> bytes:
@@ -165,9 +118,9 @@ def _call_avalai_background_edit(
     image_bytes: bytes, background_color: str, api_key: str, model: str
 ) -> bytes:
     """
-    Same contract as `_call_openai_background_edit`/`_call_openrouter_background_edit`
-    but via AvalAI's chat-completions endpoint, which is how it fronts
-    Gemini's image models (see the AVALAI_CHAT_COMPLETIONS_URL comment).
+    Same contract as `_call_openai_background_edit` but via AvalAI's
+    chat-completions endpoint, which is how it fronts Gemini's image
+    models (see the AVALAI_CHAT_COMPLETIONS_URL comment).
     The input photo rides along as an image_url content part next to the
     text prompt; modalities=["image","text"] asks for an image back.
     """
@@ -175,34 +128,41 @@ def _call_avalai_background_edit(
         raise PhotoGenerationError("AvalAI API Key در تنظیمات ادمین تنظیم نشده است")
 
     b64_input = base64.b64encode(image_bytes).decode("ascii")
-
-    try:
-        response = httpx.post(
-            AVALAI_CHAT_COMPLETIONS_URL,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": model,
-                "messages": [
+    body = {
+        "model": model,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": _background_prompt(background_color)},
                     {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": _background_prompt(background_color)},
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": f"data:image/png;base64,{b64_input}"},
-                            },
-                        ],
-                    }
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{b64_input}"},
+                    },
                 ],
-                "modalities": ["image", "text"],
-            },
-            timeout=60.0,
-        )
-    except httpx.HTTPError as exc:
-        raise PhotoGenerationError(f"اتصال به AvalAI برقرار نشد: {exc}") from exc
+            }
+        ],
+        "modalities": ["image", "text"],
+    }
+
+    response: httpx.Response | None = None
+    for attempt in range(AVALAI_RETRY_ATTEMPTS):
+        try:
+            response = httpx.post(
+                AVALAI_CHAT_COMPLETIONS_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=body,
+                timeout=60.0,
+            )
+        except httpx.HTTPError as exc:
+            raise PhotoGenerationError(f"اتصال به AvalAI برقرار نشد: {exc}") from exc
+
+        if response.status_code < 500 or attempt == AVALAI_RETRY_ATTEMPTS - 1:
+            break
+        time.sleep(AVALAI_RETRY_DELAY_S)
 
     if response.status_code != 200:
         raise PhotoGenerationError(
@@ -240,8 +200,8 @@ def generate_id_photo(
 ) -> tuple[bytes, dict]:
     """
     Takes the client-prepped photo's raw bytes, tries to replace its
-    background via the admin-configured AI provider (OpenRouter - "Nano
-    Banana"/Seedance/etc - by default, OpenAI as a fallback), and crops the
+    background via the admin-configured AI provider (AvalAI - Gemini image
+    models - by default, OpenAI as an alternative), and crops the
     result to an exact 3:4 headshot. Returns the final JPEG bytes for the
     caller to store (in Postgres, not local disk - see Photo model
     docstring) alongside a dict describing what happened.
@@ -265,20 +225,16 @@ def generate_id_photo(
     source_image.save(source_buffer, format="PNG")
     image_bytes = source_buffer.getvalue()
 
-    provider = settings_service.get_value(db, KEY_AI_PROVIDER) or "openrouter"
+    provider = settings_service.get_value(db, KEY_AI_PROVIDER) or "avalai"
     result_image = source_image
     ai_error: str | None = None
     try:
         if provider == "openai":
             result_bytes = _call_openai_background_edit(image_bytes, background_color)
-        elif provider == "avalai":
-            api_key = settings_service.get_value(db, KEY_AVALAI_API_KEY)
-            model = settings_service.get_value(db, KEY_AVALAI_MODEL)
-            result_bytes = _call_avalai_background_edit(image_bytes, background_color, api_key, model)
         else:
-            api_key = settings_service.get_value(db, KEY_OPENROUTER_API_KEY)
-            model = settings_service.get_value(db, KEY_OPENROUTER_MODEL) or DEFAULT_OPENROUTER_MODEL
-            result_bytes = _call_openrouter_background_edit(image_bytes, background_color, api_key, model)
+            api_key = settings_service.get_value(db, KEY_AVALAI_API_KEY)
+            model = settings_service.get_value(db, KEY_AVALAI_MODEL) or DEFAULT_AVALAI_MODEL
+            result_bytes = _call_avalai_background_edit(image_bytes, background_color, api_key, model)
         result_image = Image.open(BytesIO(result_bytes)).convert("RGB")
     except PhotoGenerationError as exc:
         ai_error = str(exc)
