@@ -10,10 +10,13 @@ detection. That's what let InsightFace/onnxruntime/rembg (the actual cause
 of the OOM crashes on Render's free 512MB tier) be removed entirely rather
 than bypassed with another fallback.
 
-Outfit swapping (`outfit_type`) is intentionally NOT implemented here - see
-the module-level scope note in the task this file came from. Changing what
-someone is wearing needs a generative model (diffusion inpainting / virtual
-try-on); this module only handles background replacement.
+Outfit swapping (`outfit_type`) is applied via the same generative image
+call as the background replacement - one combined prompt, one API call -
+rather than a separate pixel-editing step. Only `outfit_type == "tshirt"`
+is implemented; every other value (including "no_change" and the other
+options the gender-settings UI offers - blazer, shirt, suit, no_hijab,
+maghnaeh, shawl, scarf) falls back to leaving the original clothing
+untouched, same as before this was added.
 """
 import base64
 import time
@@ -65,21 +68,63 @@ class PhotoGenerationError(Exception):
     """Raised when the background-removal pipeline can't produce a result."""
 
 
-def _background_prompt(background_color: str) -> str:
+def _generation_prompt(background_color: str, outfit_type: str) -> str:
+    """
+    Builds the single prompt sent to the generative image model for both
+    the background swap and, when requested, the outfit swap - there's no
+    separate local image-processing step for either; both are the model's
+    job. The face/head-angle preservation paragraph is unconditional and
+    always appended, because the model has been observed to "helpfully"
+    straighten a tilted head or flatten an expression while it's busy
+    repainting the background/clothing, which is exactly what must NOT
+    happen for an ID-style photo.
+    """
     color_name = background_color if background_color in BACKGROUND_COLORS else "white"
-    return (
-        f"Replace only the background of this headshot photo with a plain, "
-        f"solid {color_name} background, like a passport/ID photo backdrop. "
-        f"Keep the person, their pose, framing, and clothing completely "
-        f"unchanged - do not alter the subject at all."
+    r, g, b = BACKGROUND_COLORS[color_name]
+    hex_color = f"#{r:02x}{g:02x}{b:02x}"
+
+    background_part = (
+        f"Replace only the background of this headshot photo with a flat, "
+        f"uniform solid {color_name} color ({hex_color}), like a passport/ID "
+        f"photo backdrop."
     )
 
+    if outfit_type == "tshirt":
+        clothing_part = (
+            "Also replace the person's visible clothing with a plain, solid "
+            "light-gray crew-neck t-shirt with no text, logo, or pattern - "
+            "suitable for a formal ID/passport photo. Keep the person's head, "
+            "face, hair, expression, and pose completely unchanged; only the "
+            "upper-body clothing changes."
+        )
+    else:
+        clothing_part = (
+            "Keep the person, their pose, framing, and clothing completely "
+            "unchanged - do not alter the subject at all."
+        )
 
-def _call_openai_background_edit(image_bytes: bytes, background_color: str) -> bytes:
+    face_preservation_part = (
+        "Preserve the person's exact facial expression exactly as captured in "
+        "the original photo, whatever it is - whether smiling, neutral, "
+        "serious, mouth open or closed, eyes open or closed, wearing glasses "
+        "or not. Also preserve the exact head and face angle/tilt from the "
+        "original photo - if the head or face is tilted or turned in the "
+        "source image, keep that same tilt and angle in the output; do NOT "
+        "straighten, re-center, or rotate the head to face forward. Do not "
+        "smooth, beautify, symmetrize, or in any way modify the face, its "
+        "expression, or its angle. The face and head orientation must remain "
+        "identical to the source photo; only the background and (if "
+        "requested) the clothing may change."
+    )
+
+    return f"{background_part} {clothing_part} {face_preservation_part}"
+
+
+def _call_openai_background_edit(image_bytes: bytes, background_color: str, outfit_type: str) -> bytes:
     """
     Sends the (already client-cropped) photo to OpenAI's Images edit
-    endpoint and asks it to replace the background with a solid color,
-    keeping the subject unchanged. Returns the raw bytes of the result
+    endpoint and asks it to replace the background (and, if requested, the
+    outfit) - see `_generation_prompt`. Returns the raw bytes of the result
     image. Raises PhotoGenerationError on any failure.
     """
     if not settings.openai_api_key:
@@ -91,7 +136,7 @@ def _call_openai_background_edit(image_bytes: bytes, background_color: str) -> b
             headers={"Authorization": f"Bearer {settings.openai_api_key}"},
             data={
                 "model": "gpt-image-1",
-                "prompt": _background_prompt(background_color),
+                "prompt": _generation_prompt(background_color, outfit_type),
                 "size": OPENAI_IMAGE_SIZE,
                 "quality": OPENAI_IMAGE_QUALITY,
                 "n": 1,
@@ -115,7 +160,7 @@ def _call_openai_background_edit(image_bytes: bytes, background_color: str) -> b
 
 
 def _call_avalai_background_edit(
-    image_bytes: bytes, background_color: str, api_key: str, model: str
+    image_bytes: bytes, background_color: str, outfit_type: str, api_key: str, model: str
 ) -> bytes:
     """
     Same contract as `_call_openai_background_edit` but via AvalAI's
@@ -134,7 +179,7 @@ def _call_avalai_background_edit(
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": _background_prompt(background_color)},
+                    {"type": "text", "text": _generation_prompt(background_color, outfit_type)},
                     {
                         "type": "image_url",
                         "image_url": {"url": f"data:image/png;base64,{b64_input}"},
@@ -196,15 +241,16 @@ def _ensure_exact_3x4(image: Image.Image) -> Image.Image:
 
 
 def generate_id_photo(
-    source_bytes: bytes, background_color: str, db: Session
+    source_bytes: bytes, background_color: str, outfit_type: str, db: Session
 ) -> tuple[bytes, dict]:
     """
     Takes the client-prepped photo's raw bytes, tries to replace its
-    background via the admin-configured AI provider (AvalAI - Gemini image
-    models - by default, OpenAI as an alternative), and crops the
-    result to an exact 3:4 headshot. Returns the final JPEG bytes for the
-    caller to store (in Postgres, not local disk - see Photo model
-    docstring) alongside a dict describing what happened.
+    background (and, when `outfit_type == "tshirt"`, the outfit too) via
+    the admin-configured AI provider (AvalAI - Gemini image models - by
+    default, OpenAI as an alternative), and crops the result to an exact
+    3:4 headshot. Returns the final JPEG bytes for the caller to store (in
+    Postgres, not local disk - see Photo model docstring) alongside a dict
+    describing what happened.
 
     If the AI call fails for any reason (no API key set, no credit, provider
     outage, bad response, ...) this does NOT fail the request - it falls
@@ -214,7 +260,8 @@ def generate_id_photo(
     since there's nothing to fall back to in that case.
 
     The dict is for the caller to record in `Photo.ai_meta`:
-    {"ai_background_replaced": bool, "provider": str, "ai_error": str | None}.
+    {"ai_background_replaced": bool, "outfit_replaced": bool, "provider": str,
+    "ai_error": str | None}.
     """
     try:
         source_image = Image.open(BytesIO(source_bytes)).convert("RGB")
@@ -230,11 +277,13 @@ def generate_id_photo(
     ai_error: str | None = None
     try:
         if provider == "openai":
-            result_bytes = _call_openai_background_edit(image_bytes, background_color)
+            result_bytes = _call_openai_background_edit(image_bytes, background_color, outfit_type)
         else:
             api_key = settings_service.get_value(db, KEY_AVALAI_API_KEY)
             model = settings_service.get_value(db, KEY_AVALAI_MODEL) or DEFAULT_AVALAI_MODEL
-            result_bytes = _call_avalai_background_edit(image_bytes, background_color, api_key, model)
+            result_bytes = _call_avalai_background_edit(
+                image_bytes, background_color, outfit_type, api_key, model
+            )
         result_image = Image.open(BytesIO(result_bytes)).convert("RGB")
     except PhotoGenerationError as exc:
         ai_error = str(exc)
@@ -248,6 +297,7 @@ def generate_id_photo(
 
     return dest_buffer.getvalue(), {
         "ai_background_replaced": ai_error is None,
+        "outfit_replaced": ai_error is None and outfit_type == "tshirt",
         "provider": provider,
         "ai_error": ai_error,
     }
