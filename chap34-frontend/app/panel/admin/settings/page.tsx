@@ -70,6 +70,18 @@ export default function AdminSettingsPage() {
           این مقادیر پیش‌فرض/fallback کل سایت هستند. فقط وقتی استفاده می‌شوند که متادیتای اختصاصی صفحه موجود نباشد.
         </p>
 
+        <label className="field-label mt-2">Base URL (دامنه‌ی اصلی سایت)</label>
+        <input
+          defaultValue={settings.base_url}
+          onChange={(e) => update("base_url", e.target.value)}
+          className="field-input mb-1"
+          placeholder="https://chap34.ir"
+          dir="ltr"
+        />
+        <p className="text-xs text-muted mb-3">
+          برای sitemap، canonical و OG image استفاده می‌شود. بدون اسلش انتهایی وارد کنید.
+        </p>
+
         <label className="field-label mt-2">عنوان پیش‌فرض سایت (Default Site Title)</label>
         <input
           defaultValue={settings.seo_site_title}
@@ -151,6 +163,7 @@ export default function AdminSettingsPage() {
           title={form.seo_site_title ?? settings.seo_site_title}
           description={form.seo_site_description ?? settings.seo_site_description}
           ogImage={form.seo_default_og_image ?? settings.seo_default_og_image}
+          baseUrl={form.base_url ?? settings.base_url}
         />
 
         <button onClick={save} className="btn-primary w-full mt-4">ذخیرهٔ این بخش</button>
@@ -229,16 +242,27 @@ function SeoLengthHint({ value, max, label }: { value: string; max: number; labe
   );
 }
 
-function SeoPreview({ title, description, ogImage }: { title: string; description: string; ogImage: string }) {
+function SeoPreview({
+  title,
+  description,
+  ogImage,
+  baseUrl,
+}: {
+  title: string;
+  description: string;
+  ogImage: string;
+  baseUrl: string;
+}) {
   const displayTitle = title || "عنوان صفحه اینجا نمایش داده می‌شود";
   const displayDesc = description || "توضیحات صفحه اینجا نمایش داده می‌شود";
+  const displayDomain = (baseUrl || "").replace(/^https?:\/\//, "").replace(/\/+$/, "") || "your-domain.com";
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
       <div className="border border-line rounded-md2 p-3">
         <p className="text-[11px] font-bold text-muted mb-2">پیش‌نمایش گوگل</p>
         <div dir="ltr" className="text-left">
           <p className="text-[13px] text-[#1a0dab] truncate">{displayTitle}</p>
-          <p className="text-[12px] text-[#006621]">chap34-app.netlify.app</p>
+          <p className="text-[12px] text-[#006621]">{displayDomain}</p>
           <p className="text-[12.5px] text-[#545454] line-clamp-2">{displayDesc}</p>
         </div>
       </div>
