@@ -20,6 +20,13 @@ from app.models.setting import (
     KEY_PRICE_BASE_QTY_12,
     KEY_PRICE_BASE_QTY_24,
     KEY_PRICE_BASE_QTY_6,
+    KEY_SEO_DEFAULT_OG_IMAGE,
+    KEY_SEO_GA_MEASUREMENT_ID,
+    KEY_SEO_GSC_VERIFICATION,
+    KEY_SEO_GTM_CONTAINER_ID,
+    KEY_SEO_SITE_DESCRIPTION,
+    KEY_SEO_SITE_LOGO,
+    KEY_SEO_SITE_TITLE,
     KEY_SHIPPING_COST,
     KEY_SIZE_MULTIPLIER_3X4,
     KEY_SIZE_MULTIPLIER_6X8,
@@ -75,6 +82,13 @@ class SettingsUpdate(BaseModel):
     ai_provider: str | None = None
     avalai_api_key: str | None = None
     avalai_model: str | None = None
+    seo_site_title: str | None = None
+    seo_site_description: str | None = None
+    seo_default_og_image: str | None = None
+    seo_site_logo: str | None = None
+    seo_gsc_verification: str | None = None
+    seo_ga_measurement_id: str | None = None
+    seo_gtm_container_id: str | None = None
 
 
 @router.put("/settings")
@@ -98,6 +112,13 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_session), _s
         KEY_AI_PROVIDER: body.ai_provider or "",
         KEY_AVALAI_API_KEY: body.avalai_api_key or "",
         KEY_AVALAI_MODEL: body.avalai_model or "",
+        KEY_SEO_SITE_TITLE: body.seo_site_title or "",
+        KEY_SEO_SITE_DESCRIPTION: body.seo_site_description or "",
+        KEY_SEO_DEFAULT_OG_IMAGE: body.seo_default_og_image or "",
+        KEY_SEO_SITE_LOGO: body.seo_site_logo or "",
+        KEY_SEO_GSC_VERIFICATION: body.seo_gsc_verification or "",
+        KEY_SEO_GA_MEASUREMENT_ID: body.seo_ga_measurement_id or "",
+        KEY_SEO_GTM_CONTAINER_ID: body.seo_gtm_container_id or "",
     })
     return {"ok": True}
 

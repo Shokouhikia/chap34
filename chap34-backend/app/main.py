@@ -16,6 +16,7 @@ import app.models  # noqa: F401
 from app.api import (
     admin,
     admin_crm,
+    admin_redirects,
     atelier,
     auth,
     ops_batches,
@@ -26,6 +27,7 @@ from app.api import (
     orders,
     photos,
     pricing,
+    seo,
     staff_auth,
 )
 
@@ -75,6 +77,8 @@ app.include_router(staff_auth.router)
 
 app.include_router(admin.router)
 app.include_router(admin_crm.router)
+app.include_router(admin_redirects.router)
+app.include_router(seo.router)
 
 app.include_router(ops_dashboard.router)
 app.include_router(ops_orders.router)

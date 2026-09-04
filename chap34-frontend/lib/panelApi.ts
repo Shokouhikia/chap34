@@ -93,6 +93,23 @@ async function postForFile(path: string, body: unknown) {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+export type RedirectRow = {
+  id: string;
+  source_path: string;
+  destination_path: string;
+  status_code: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RedirectInput = {
+  source_path: string;
+  destination_path: string;
+  status_code: number;
+  is_active: boolean;
+};
+
 export type OrderSummary = {
   id: string;
   order_code: string;
@@ -329,6 +346,24 @@ export const panelApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
+  listRedirects: () =>
+    request("/api/admin/redirects") as Promise<{
+      redirects: RedirectRow[];
+    }>,
+  createRedirect: (body: RedirectInput) =>
+    request("/api/admin/redirects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }) as Promise<RedirectRow>,
+  updateRedirect: (id: string, body: RedirectInput) =>
+    request(`/api/admin/redirects/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }) as Promise<RedirectRow>,
+  deleteRedirect: (id: string) =>
+    request(`/api/admin/redirects/${id}`, { method: "DELETE" }),
   listAtelierAccounts: () =>
     request("/api/admin/atelier-accounts") as Promise<
       {

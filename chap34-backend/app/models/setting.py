@@ -23,6 +23,19 @@ KEY_AVALAI_MODEL = "avalai_model"
 KEY_ZARINPAL_MERCHANT_ID = "zarinpal_merchant_id"
 KEY_BASE_URL = "base_url"
 
+# --- SEO (site-wide, editable from /panel/admin/settings) ---
+# Fallbacks only - per-page metadata (e.g. the homepage's own <title>) takes
+# priority when it's set; these are what's left when nothing more specific
+# exists. None of these are secrets: they're all meant to end up in public
+# HTML/meta tags, so they're never masked by settings_service.mask().
+KEY_SEO_SITE_TITLE = "seo_site_title"
+KEY_SEO_SITE_DESCRIPTION = "seo_site_description"
+KEY_SEO_DEFAULT_OG_IMAGE = "seo_default_og_image"
+KEY_SEO_SITE_LOGO = "seo_site_logo"
+KEY_SEO_GSC_VERIFICATION = "seo_gsc_verification"
+KEY_SEO_GA_MEASUREMENT_ID = "seo_ga_measurement_id"
+KEY_SEO_GTM_CONTAINER_ID = "seo_gtm_container_id"
+
 KEY_PRICE_BASE_QTY_6 = "price_base_qty_6"
 KEY_PRICE_BASE_QTY_12 = "price_base_qty_12"
 KEY_PRICE_BASE_QTY_24 = "price_base_qty_24"
@@ -71,4 +84,25 @@ DEFAULT_SETTINGS = {
     KEY_PAPER_MULTIPLIER_GLOSSY: "1.0",
     KEY_PAPER_MULTIPLIER_MATTE: "0.95",
     KEY_SHIPPING_COST: "45000",
+    KEY_SEO_SITE_TITLE: "",
+    KEY_SEO_SITE_DESCRIPTION: "",
+    KEY_SEO_DEFAULT_OG_IMAGE: "",
+    KEY_SEO_SITE_LOGO: "",
+    KEY_SEO_GSC_VERIFICATION: "",
+    KEY_SEO_GA_MEASUREMENT_ID: "",
+    KEY_SEO_GTM_CONTAINER_ID: "",
+}
+
+# Public-safe subset of settings: keys the unauthenticated frontend is
+# allowed to read (for metadata/JSON-LD/analytics tags). Never add a
+# payment/SMS/AI-provider key here.
+PUBLIC_SEO_KEYS = {
+    KEY_BASE_URL,
+    KEY_SEO_SITE_TITLE,
+    KEY_SEO_SITE_DESCRIPTION,
+    KEY_SEO_DEFAULT_OG_IMAGE,
+    KEY_SEO_SITE_LOGO,
+    KEY_SEO_GSC_VERIFICATION,
+    KEY_SEO_GA_MEASUREMENT_ID,
+    KEY_SEO_GTM_CONTAINER_ID,
 }

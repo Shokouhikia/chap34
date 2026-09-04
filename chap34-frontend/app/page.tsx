@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import HeroVisual from "@/components/HeroVisual";
 import { LANDING_IMAGES } from "@/lib/assets";
+import { getSeoSettings, getSiteBaseUrl } from "@/lib/seo";
 import {
   IconAward,
   IconCheck,
@@ -13,6 +15,14 @@ import {
   IconTruck,
   IconUpload,
 } from "@/components/icons";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const seo = await getSeoSettings();
+  const baseUrl = getSiteBaseUrl(seo);
+  return {
+    alternates: { canonical: baseUrl },
+  };
+}
 
 const STEPS = [
   {
