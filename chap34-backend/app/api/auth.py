@@ -52,7 +52,7 @@ def send_otp(body: SendOtpBody, db: Session = Depends(get_session)):
     db.add(otp)
     db.commit()
 
-    sent = sms_service.send_sms(db, body.phone, f"کد ورود شما به چاپ۳۴: {code}")
+    sent = sms_service.send_otp_code(db, body.phone, code)
 
     if sent:
         return {"message": "کد تأیید ارسال شد"}

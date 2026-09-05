@@ -20,6 +20,7 @@ from sqlmodel import Session
 
 from app.models.address import Address
 from app.models.order import FulfillmentStatus, Order
+from app.services import notifications
 from app.services.sheet_layout import SheetOrder
 
 
@@ -105,6 +106,11 @@ def register_tracking_and_ship(
     db.add(order)
     db.commit()
     db.refresh(order)
+
+    address = db.get(Address, order.address_id)
+    if address:
+        notifications.send_status_change_sms(db, order, address, "ارسال شد")
+
     return order
 
 

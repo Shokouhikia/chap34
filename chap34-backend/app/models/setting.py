@@ -57,6 +57,20 @@ KEY_SMTP_FROM_EMAIL = "smtp_from_email"
 # code change, but selecting anything else currently just errors clearly.
 KEY_PAYMENT_GATEWAY = "payment_gateway"
 
+# --- SMS.ir (https://sms.ir) - the SMS provider going forward. Kept
+# alongside the older Kavenegar-shaped keys (KEY_SMS_*) rather than
+# replacing them: app.services.sms_service dispatches to whichever is
+# enabled, with Kavenegar as the fallback if SMS.ir is off. See
+# /panel/admin/business-info "SMS.ir" tab.
+KEY_SMSIR_ENABLED = "smsir_enabled"
+KEY_SMSIR_API_KEY = "smsir_api_key"
+KEY_SMSIR_LINE_NUMBER = "smsir_line_number"
+KEY_SMSIR_OTP_TEMPLATE_ID = "smsir_otp_template_id"
+# Per-notification-type toggles, independent of which provider is active.
+KEY_SMSIR_NOTIFY_ORDER_PLACED = "smsir_notify_order_placed"
+KEY_SMSIR_NOTIFY_STATUS_CHANGE = "smsir_notify_status_change"
+KEY_SMSIR_NOTIFY_PAYMENT_CONFIRMED = "smsir_notify_payment_confirmed"
+
 KEY_LEGAL_ABOUT = "legal_about"
 KEY_LEGAL_TERMS = "legal_terms"
 KEY_LEGAL_PRIVACY = "legal_privacy"
@@ -79,6 +93,7 @@ SECRET_KEYS = {
     KEY_ZARINPAL_MERCHANT_ID,
     KEY_AVALAI_API_KEY,
     KEY_SMTP_PASSWORD,
+    KEY_SMSIR_API_KEY,
 }
 
 # Curated AvalAI Gemini image models offered in the admin "هوش مصنوعی"
@@ -200,6 +215,13 @@ DEFAULT_SETTINGS = {
     KEY_SMTP_PASSWORD: "",
     KEY_SMTP_FROM_EMAIL: "",
     KEY_PAYMENT_GATEWAY: "zarinpal",
+    KEY_SMSIR_ENABLED: "false",
+    KEY_SMSIR_API_KEY: "",
+    KEY_SMSIR_LINE_NUMBER: "",
+    KEY_SMSIR_OTP_TEMPLATE_ID: "",
+    KEY_SMSIR_NOTIFY_ORDER_PLACED: "true",
+    KEY_SMSIR_NOTIFY_STATUS_CHANGE: "true",
+    KEY_SMSIR_NOTIFY_PAYMENT_CONFIRMED: "true",
     KEY_LEGAL_ABOUT: DEFAULT_ABOUT_TEXT,
     KEY_LEGAL_TERMS: DEFAULT_TERMS_TEXT,
     KEY_LEGAL_PRIVACY: DEFAULT_PRIVACY_TEXT,

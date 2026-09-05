@@ -379,6 +379,8 @@ export const panelApi = {
     request("/api/admin/contact-messages") as Promise<{ messages: ContactMessageRow[] }>,
   markContactMessageRead: (id: string) =>
     request(`/api/admin/contact-messages/${id}/read`, { method: "PATCH" }),
+  getSmsirCredit: () =>
+    request("/api/admin/smsir/credit") as Promise<{ enabled: boolean; credit: number | null }>,
   listAtelierAccounts: () =>
     request("/api/admin/atelier-accounts") as Promise<
       {

@@ -13,10 +13,11 @@ from sqlmodel import Session, select
 
 from app.api.deps import require_staff_role
 from app.core.database import get_session
+from app.models.address import Address
 from app.models.staff import StaffRole
 from app.models.order import FulfillmentStatus, Order
 from app.models.shipment import Shipment
-from app.services import fulfillment
+from app.services import fulfillment, notifications
 from app.services.codes import next_shipment_code
 from app.services.labels import (
     render_labels_pdf_pages,
@@ -223,6 +224,11 @@ def mark_delivered(
     order.updated_at = datetime.utcnow()
     db.add(order)
     db.commit()
+
+    address = db.get(Address, order.address_id)
+    if address:
+        notifications.send_status_change_sms(db, order, address, "تحویل داده شد")
+
     return order_summary(db, order)
 
 

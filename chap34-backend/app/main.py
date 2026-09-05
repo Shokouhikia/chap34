@@ -18,6 +18,7 @@ from app.api import (
     admin_content,
     admin_crm,
     admin_redirects,
+    admin_smsir,
     atelier,
     auth,
     content,
@@ -81,6 +82,7 @@ app.include_router(admin.router)
 app.include_router(admin_crm.router)
 app.include_router(admin_redirects.router)
 app.include_router(admin_content.router)
+app.include_router(admin_smsir.router)
 app.include_router(seo.router)
 app.include_router(content.router)
 

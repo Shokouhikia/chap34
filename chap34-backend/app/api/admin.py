@@ -44,6 +44,13 @@ from app.models.setting import (
     KEY_SMS_PASSWORD,
     KEY_SMS_PROVIDER,
     KEY_SMS_USERNAME,
+    KEY_SMSIR_API_KEY,
+    KEY_SMSIR_ENABLED,
+    KEY_SMSIR_LINE_NUMBER,
+    KEY_SMSIR_NOTIFY_ORDER_PLACED,
+    KEY_SMSIR_NOTIFY_PAYMENT_CONFIRMED,
+    KEY_SMSIR_NOTIFY_STATUS_CHANGE,
+    KEY_SMSIR_OTP_TEMPLATE_ID,
     KEY_SMTP_FROM_EMAIL,
     KEY_SMTP_HOST,
     KEY_SMTP_PASSWORD,
@@ -119,6 +126,13 @@ class SettingsUpdate(BaseModel):
     legal_privacy: str | None = None
     legal_user_content_terms: str | None = None
     legal_refund_policy: str | None = None
+    smsir_enabled: str | None = None
+    smsir_api_key: str | None = None
+    smsir_line_number: str | None = None
+    smsir_otp_template_id: str | None = None
+    smsir_notify_order_placed: str | None = None
+    smsir_notify_status_change: str | None = None
+    smsir_notify_payment_confirmed: str | None = None
 
 
 @router.put("/settings")
@@ -164,6 +178,13 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_session), _s
         KEY_LEGAL_PRIVACY: body.legal_privacy or "",
         KEY_LEGAL_USER_CONTENT_TERMS: body.legal_user_content_terms or "",
         KEY_LEGAL_REFUND_POLICY: body.legal_refund_policy or "",
+        KEY_SMSIR_ENABLED: body.smsir_enabled or "",
+        KEY_SMSIR_API_KEY: body.smsir_api_key or "",
+        KEY_SMSIR_LINE_NUMBER: body.smsir_line_number or "",
+        KEY_SMSIR_OTP_TEMPLATE_ID: body.smsir_otp_template_id or "",
+        KEY_SMSIR_NOTIFY_ORDER_PLACED: body.smsir_notify_order_placed or "",
+        KEY_SMSIR_NOTIFY_STATUS_CHANGE: body.smsir_notify_status_change or "",
+        KEY_SMSIR_NOTIFY_PAYMENT_CONFIRMED: body.smsir_notify_payment_confirmed or "",
     })
     return {"ok": True}
 
