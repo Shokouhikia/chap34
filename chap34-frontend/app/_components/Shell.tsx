@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Footer from "./Footer";
+import type { BusinessInfo } from "@/lib/content";
 
 // Marketing nav links shown on the home page header.
 const NAV_LINKS: { label: string; href: string }[] = [{ label: "سفارشات من", href: "/account" }];
@@ -14,7 +16,7 @@ const NAV_LINKS: { label: string; href: string }[] = [{ label: "سفارشات �
 // the panels moved under "/panel/..." - the result was the customer shell
 // wrapping the panel and its max-w-3xl clamping the panel's own width, which
 // is what made the staff app feel cramped/mobile on desktop.
-export default function Shell({ children }: { children: React.ReactNode }) {
+export default function Shell({ children, businessInfo }: { children: React.ReactNode; businessInfo: BusinessInfo }) {
   const pathname = usePathname();
   const isPanel = pathname?.startsWith("/panel");
   const isHome = pathname === "/";
@@ -50,6 +52,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         <main className="w-full">{children}</main>
+        <Footer info={businessInfo} />
       </>
     );
   }
@@ -62,6 +65,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         </a>
       </header>
       <main className="mx-auto max-w-3xl px-4 py-10">{children}</main>
+      <Footer info={businessInfo} />
     </>
   );
 }

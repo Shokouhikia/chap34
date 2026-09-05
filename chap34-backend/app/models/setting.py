@@ -36,6 +36,33 @@ KEY_SEO_GSC_VERIFICATION = "seo_gsc_verification"
 KEY_SEO_GA_MEASUREMENT_ID = "seo_ga_measurement_id"
 KEY_SEO_GTM_CONTAINER_ID = "seo_gtm_container_id"
 
+# --- Business info (contact/legal/notifications) - editable from
+# /panel/admin/business-info. Legal text values are long-form (HTML/plain
+# text authored by the admin) and stored as-is; frontend renders them
+# whitespace-preserved, never as raw HTML, to avoid an admin-side XSS vector.
+KEY_BIZ_PHONE = "biz_phone"
+KEY_BIZ_EMAIL = "biz_email"
+KEY_BIZ_ADDRESS = "biz_address"
+KEY_BIZ_INSTAGRAM = "biz_instagram"
+
+KEY_SMTP_HOST = "smtp_host"
+KEY_SMTP_PORT = "smtp_port"
+KEY_SMTP_USERNAME = "smtp_username"
+KEY_SMTP_PASSWORD = "smtp_password"
+KEY_SMTP_FROM_EMAIL = "smtp_from_email"
+
+# Which configured gateway /api/payment/init uses. Only "zarinpal" has a
+# real implementation (see app.services.zarinpal) - kept as a setting
+# rather than hardcoded so switching gateways later doesn't need a
+# code change, but selecting anything else currently just errors clearly.
+KEY_PAYMENT_GATEWAY = "payment_gateway"
+
+KEY_LEGAL_ABOUT = "legal_about"
+KEY_LEGAL_TERMS = "legal_terms"
+KEY_LEGAL_PRIVACY = "legal_privacy"
+KEY_LEGAL_USER_CONTENT_TERMS = "legal_user_content_terms"
+KEY_LEGAL_REFUND_POLICY = "legal_refund_policy"
+
 KEY_PRICE_BASE_QTY_6 = "price_base_qty_6"
 KEY_PRICE_BASE_QTY_12 = "price_base_qty_12"
 KEY_PRICE_BASE_QTY_24 = "price_base_qty_24"
@@ -51,6 +78,7 @@ SECRET_KEYS = {
     KEY_GOOGLE_AI_API_KEY,
     KEY_ZARINPAL_MERCHANT_ID,
     KEY_AVALAI_API_KEY,
+    KEY_SMTP_PASSWORD,
 }
 
 # Curated AvalAI Gemini image models offered in the admin "هوش مصنوعی"
@@ -64,6 +92,77 @@ AVALAI_MODEL_CHOICES = {
     "gemini-3.1-flash-image": "Gemini 3.1 Flash Image",
 }
 DEFAULT_AVALAI_MODEL = "gemini-3.1-flash-lite-image"
+
+# Default legal-page bodies. These are an AI-drafted starting point, not
+# reviewed legal text - the admin must read, adjust to the business's real
+# practices and have them checked before relying on them for Enamad or any
+# other compliance purpose. Editable from /panel/admin/business-info.
+DEFAULT_ABOUT_TEXT = """چاپ۳۴ (Chap34) یک سرویس آنلاین است که با استفاده از هوش مصنوعی، از روی عکسی که کاربر می‌گیرد یا آپلود می‌کند، یک عکس پرسنلی استاندارد (سایز ۳×۴ یا ۶×۸) تولید می‌کند. کاربر می‌تواند فایل نهایی را دانلود کند یا سفارش چاپ و ارسال پستی آن را ثبت کند.
+
+هدف ما ساده و سریع‌کردن فرآیند تهیه‌ی عکس پرسنلی استاندارد است، بدون نیاز به مراجعه‌ی حضوری به آتلیه و صرف زمان برای گرفتن عکس با کیفیت مناسب.
+
+این متن یک پیش‌نویس اولیه است و باید با اطلاعات واقعی کسب‌وکار (تاریخچه، مجوزها، آدرس و غیره) توسط مدیر سایت تکمیل شود."""
+
+DEFAULT_TERMS_TEXT = """۱. با ثبت سفارش در چاپ۳۴، کاربر می‌پذیرد که مشخصات وارد‌شده (آدرس، شماره تماس) صحیح و متعلق به خود اوست.
+
+۲. قیمت نهایی هر سفارش (شامل هزینه‌ی چاپ و هزینه‌ی ارسال) پیش از پرداخت به‌طور کامل و شفاف به کاربر نمایش داده می‌شود و پس از پرداخت تغییر نمی‌کند.
+
+۳. پرداخت از طریق درگاه بانکی معتبر و متصل به شاپرک انجام می‌شود؛ اطلاعات کارت بانکی کاربر در هیچ مرحله‌ای توسط چاپ۳۴ دریافت یا ذخیره نمی‌شود.
+
+۴. کیفیت عکس نهایی به کیفیت عکس ارسالی توسط کاربر (نور، وضوح، زاویه) وابسته است.
+
+۵. زمان تقریبی آماده‌سازی، چاپ و ارسال سفارش در فرآیند ثبت سفارش و صفحه‌ی پیگیری اعلام می‌شود.
+
+۶. برای اطلاعات مربوط به لغو سفارش و بازگشت وجه به صفحه‌ی «قوانین لغو سفارش و بازگشت وجه» مراجعه کنید.
+
+۷. برای اطلاعات مربوط به نحوه‌ی استفاده از تصاویر آپلودی، به صفحه‌ی «شرایط استفاده از تصاویر کاربران» مراجعه کنید.
+
+این متن یک پیش‌نویس اولیه است و پیش از انتشار نهایی باید توسط مدیر سایت یا مشاور حقوقی بازبینی شود."""
+
+DEFAULT_PRIVACY_TEXT = """چاپ۳۴ برای ارائه‌ی خدمات خود اطلاعات زیر را از کاربران دریافت می‌کند:
+
+- شماره موبایل (برای ورود به حساب کاربری و اطلاع‌رسانی سفارش)
+- عکس آپلودی یا گرفته‌شده توسط کاربر (برای تولید عکس پرسنلی)
+- آدرس پستی و شماره تماس گیرنده (در صورت ثبت سفارش چاپ، برای ارسال مرسوله)
+
+این اطلاعات صرفاً برای موارد زیر استفاده می‌شود:
+- پردازش و تولید عکس پرسنلی
+- ثبت، پیگیری و ارسال سفارش
+- اطلاع‌رسانی وضعیت سفارش از طریق پیامک
+
+اطلاعات کاربران در اختیار اشخاص ثالث قرار نمی‌گیرد، مگر در حد ضرورت برای انجام خدمت (مانند شرکت پست برای ارسال مرسوله، درگاه پرداخت برای انجام تراکنش، یا سرویس پیامکی برای اطلاع‌رسانی).
+
+برای سیاست نگهداری و حذف تصاویر آپلودی، به صفحه‌ی «شرایط استفاده از تصاویر کاربران» مراجعه کنید.
+
+این متن یک پیش‌نویس اولیه است و باید پیش از انتشار نهایی توسط مدیر سایت بازبینی و در صورت نیاز توسط مشاور حقوقی تأیید شود."""
+
+DEFAULT_USER_CONTENT_TERMS_TEXT = """عکسی که کاربر در چاپ۳۴ آپلود می‌کند یا با دوربین می‌گیرد، صرفاً برای موارد زیر استفاده می‌شود:
+
+- پردازش توسط هوش مصنوعی جهت تولید عکس پرسنلی استاندارد
+- نمایش نتیجه به خود کاربر جهت تأیید یا ویرایش
+- در صورت ثبت سفارش چاپ، ارسال فایل به چاپخانه‌ی همکار جهت چاپ فیزیکی
+
+عکس‌های آپلودی کاربران:
+- بدون اجازه‌ی صریح کاربر در تبلیغات، نمونه‌کار یا هیچ مکان عمومی دیگری منتشر نمی‌شود.
+- برای آموزش مدل‌های هوش مصنوعی استفاده نمی‌شود.
+- پس از تکمیل سفارش (یا در صورت عدم تکمیل، پس از یک دوره‌ی مشخص عدم فعالیت) از سرورهای ما حذف می‌شود؛ مدت دقیق نگهداری باید توسط مدیر سایت مشخص و در همین صفحه اعلام شود.
+
+کاربر مسئول این است که تصویری که آپلود می‌کند متعلق به خودش (یا فردی باشد که او مجاز به ارسال تصویرش است) و ناقض حقوق اشخاص ثالث نباشد.
+
+این متن یک پیش‌نویس اولیه است. مدت دقیق نگهداری تصاویر و جزئیات فنی حذف آن‌ها باید توسط مدیر سایت تکمیل و تأیید شود."""
+
+DEFAULT_REFUND_POLICY_TEXT = """۱. لغو پیش از شروع چاپ: تا پیش از آنکه سفارش وارد مرحله‌ی چاپ شود، امکان لغو سفارش و بازگشت کامل وجه پرداختی وجود دارد. برای لغو با پشتیبانی از طریق راه‌های ارتباطی مندرج در صفحه‌ی «تماس با ما» در تماس باشید.
+
+۲. لغو پس از شروع چاپ: از آنجا که هر سفارش بر اساس عکس شخصی کاربر و به‌صورت اختصاصی چاپ می‌شود، پس از شروع فرآیند چاپ امکان لغو سفارش وجود ندارد.
+
+۳. مغایرت یا نقص در سفارش: در صورتی که سفارش دریافتی دارای نقص چاپی، آسیب در حمل، یا مغایرت با سفارش ثبت‌شده باشد، کاربر می‌تواند حداکثر تا (مدت زمان مشخص توسط مدیر سایت) پس از دریافت مرسوله موضوع را به پشتیبانی اطلاع دهد تا نسبت به چاپ مجدد یا بازگشت وجه اقدام شود.
+
+۴. زمان بازگشت وجه: در صورت تأیید بازگشت وجه، مبلغ ظرف مدت ۷ تا ۱۴ روز کاری به همان کارت/حساب مبدأ پرداخت بازگردانده می‌شود.
+
+۵. تماس با پشتیبانی: برای هرگونه درخواست لغو یا بازگشت وجه، از طریق صفحه‌ی «تماس با ما» یا فرم پیگیری سفارش با ما در ارتباط باشید.
+
+این متن یک پیش‌نویس اولیه است؛ مهلت‌های دقیق و شرایط استثنا باید توسط مدیر سایت بازبینی و نهایی شود."""
+
 
 DEFAULT_SETTINGS = {
     KEY_SMS_PROVIDER: "kavenegar",
@@ -91,6 +190,35 @@ DEFAULT_SETTINGS = {
     KEY_SEO_GSC_VERIFICATION: "",
     KEY_SEO_GA_MEASUREMENT_ID: "",
     KEY_SEO_GTM_CONTAINER_ID: "",
+    KEY_BIZ_PHONE: "",
+    KEY_BIZ_EMAIL: "",
+    KEY_BIZ_ADDRESS: "",
+    KEY_BIZ_INSTAGRAM: "https://instagram.com/chap34",
+    KEY_SMTP_HOST: "",
+    KEY_SMTP_PORT: "587",
+    KEY_SMTP_USERNAME: "",
+    KEY_SMTP_PASSWORD: "",
+    KEY_SMTP_FROM_EMAIL: "",
+    KEY_PAYMENT_GATEWAY: "zarinpal",
+    KEY_LEGAL_ABOUT: DEFAULT_ABOUT_TEXT,
+    KEY_LEGAL_TERMS: DEFAULT_TERMS_TEXT,
+    KEY_LEGAL_PRIVACY: DEFAULT_PRIVACY_TEXT,
+    KEY_LEGAL_USER_CONTENT_TERMS: DEFAULT_USER_CONTENT_TERMS_TEXT,
+    KEY_LEGAL_REFUND_POLICY: DEFAULT_REFUND_POLICY_TEXT,
+}
+
+# Public-safe subset for the customer-facing site: contact info + legal
+# page bodies. Never add SMTP/payment credentials here.
+PUBLIC_CONTENT_KEYS = {
+    KEY_BIZ_PHONE,
+    KEY_BIZ_EMAIL,
+    KEY_BIZ_ADDRESS,
+    KEY_BIZ_INSTAGRAM,
+    KEY_LEGAL_ABOUT,
+    KEY_LEGAL_TERMS,
+    KEY_LEGAL_PRIVACY,
+    KEY_LEGAL_USER_CONTENT_TERMS,
+    KEY_LEGAL_REFUND_POLICY,
 }
 
 # Public-safe subset of settings: keys the unauthenticated frontend is

@@ -17,3 +17,4 @@ from app.models.shipment import Shipment  # noqa: F401
 from app.models.setting import Setting  # noqa: F401
 from app.models.discount import DiscountCode  # noqa: F401
 from app.models.redirect import Redirect  # noqa: F401
+from app.models.contact_message import ContactMessage  # noqa: F401

@@ -200,12 +200,18 @@ export const api = {
 
   getMyOrders: () => request("/api/orders"),
 
-  requestOtp: (phone: string) =>
-    request("/api/auth/send-otp", {
+  requestOtp: async (phone: string) => {
+    const data = await request("/api/auth/send-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone }),
-    }),
+    });
+    // Only present outside production, when no SMS provider is configured
+    // yet - lets the login flow stay testable locally without a real
+    // SMS account. Never shown in the UI, only logged for the developer.
+    if (data?.dev_hint) console.info(data.dev_hint);
+    return data;
+  },
 
   verifyOtp: async (phone: string, code: string) => {
     const data = await request("/api/auth/verify-otp", {
@@ -259,13 +265,33 @@ export const api = {
       gateway_redirect_url: string;
     }>,
 
-  confirmPayment: (paymentId: string) =>
-    request(`/api/payment/callback?payment_id=${paymentId}`, { method: "POST" }),
-
-  advanceOrder: (orderId: string) =>
-    request(`/api/orders/${orderId}/advance`, { method: "POST" }),
+  verifyPayment: (orderId: string, authority: string, status: string) =>
+    request(
+      `/api/payment/verify?order_id=${orderId}&Authority=${encodeURIComponent(authority)}&Status=${encodeURIComponent(status)}`
+    ) as Promise<{ order_id: string; status: string; payment_status: "success" | "failed" }>,
 
   getTracking: (orderId: string) => request(`/api/orders/${orderId}/status`),
+
+  submitContact: (body: { name: string; phone: string; email?: string; subject: string; message: string }) =>
+    request("/api/content/contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+
+  trackOrder: (orderCode: string, phone: string) =>
+    request(
+      `/api/content/track-order?order_code=${encodeURIComponent(orderCode)}&phone=${encodeURIComponent(phone)}`
+    ) as Promise<{
+      order_code: string;
+      status: string;
+      size: PrintSize;
+      paper_type: PaperType;
+      quantity: number;
+      tracking_code: string | null;
+      created_at: string;
+      history: { status: string; created_at: string }[];
+    }>,
 
   fileUrl: (path: string) => `${API_URL}${path}`,
 };

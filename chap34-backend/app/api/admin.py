@@ -14,9 +14,19 @@ from app.models.setting import (
     KEY_AVALAI_API_KEY,
     KEY_AVALAI_MODEL,
     KEY_BASE_URL,
+    KEY_BIZ_ADDRESS,
+    KEY_BIZ_EMAIL,
+    KEY_BIZ_INSTAGRAM,
+    KEY_BIZ_PHONE,
     KEY_GOOGLE_AI_API_KEY,
+    KEY_LEGAL_ABOUT,
+    KEY_LEGAL_PRIVACY,
+    KEY_LEGAL_REFUND_POLICY,
+    KEY_LEGAL_TERMS,
+    KEY_LEGAL_USER_CONTENT_TERMS,
     KEY_PAPER_MULTIPLIER_GLOSSY,
     KEY_PAPER_MULTIPLIER_MATTE,
+    KEY_PAYMENT_GATEWAY,
     KEY_PRICE_BASE_QTY_12,
     KEY_PRICE_BASE_QTY_24,
     KEY_PRICE_BASE_QTY_6,
@@ -34,6 +44,11 @@ from app.models.setting import (
     KEY_SMS_PASSWORD,
     KEY_SMS_PROVIDER,
     KEY_SMS_USERNAME,
+    KEY_SMTP_FROM_EMAIL,
+    KEY_SMTP_HOST,
+    KEY_SMTP_PASSWORD,
+    KEY_SMTP_PORT,
+    KEY_SMTP_USERNAME,
     KEY_ZARINPAL_MERCHANT_ID,
     SECRET_KEYS,
 )
@@ -89,6 +104,21 @@ class SettingsUpdate(BaseModel):
     seo_gsc_verification: str | None = None
     seo_ga_measurement_id: str | None = None
     seo_gtm_container_id: str | None = None
+    biz_phone: str | None = None
+    biz_email: str | None = None
+    biz_address: str | None = None
+    biz_instagram: str | None = None
+    smtp_host: str | None = None
+    smtp_port: str | None = None
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from_email: str | None = None
+    payment_gateway: str | None = None
+    legal_about: str | None = None
+    legal_terms: str | None = None
+    legal_privacy: str | None = None
+    legal_user_content_terms: str | None = None
+    legal_refund_policy: str | None = None
 
 
 @router.put("/settings")
@@ -119,6 +149,21 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_session), _s
         KEY_SEO_GSC_VERIFICATION: body.seo_gsc_verification or "",
         KEY_SEO_GA_MEASUREMENT_ID: body.seo_ga_measurement_id or "",
         KEY_SEO_GTM_CONTAINER_ID: body.seo_gtm_container_id or "",
+        KEY_BIZ_PHONE: body.biz_phone or "",
+        KEY_BIZ_EMAIL: body.biz_email or "",
+        KEY_BIZ_ADDRESS: body.biz_address or "",
+        KEY_BIZ_INSTAGRAM: body.biz_instagram or "",
+        KEY_SMTP_HOST: body.smtp_host or "",
+        KEY_SMTP_PORT: body.smtp_port or "",
+        KEY_SMTP_USERNAME: body.smtp_username or "",
+        KEY_SMTP_PASSWORD: body.smtp_password or "",
+        KEY_SMTP_FROM_EMAIL: body.smtp_from_email or "",
+        KEY_PAYMENT_GATEWAY: body.payment_gateway or "",
+        KEY_LEGAL_ABOUT: body.legal_about or "",
+        KEY_LEGAL_TERMS: body.legal_terms or "",
+        KEY_LEGAL_PRIVACY: body.legal_privacy or "",
+        KEY_LEGAL_USER_CONTENT_TERMS: body.legal_user_content_terms or "",
+        KEY_LEGAL_REFUND_POLICY: body.legal_refund_policy or "",
     })
     return {"ok": True}
 

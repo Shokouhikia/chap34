@@ -106,11 +106,12 @@ function SummaryPageInner() {
     setError(null);
     try {
       const init = await api.initPayment(orderId);
-      await api.confirmPayment(init.payment_id);
-      router.push(`/orders/${orderId}/tracking`);
+      // Real Zarinpal redirect - the customer pays on Zarinpal's own page,
+      // never inside a form on this site, and Zarinpal sends them back to
+      // /checkout/payment-callback afterwards.
+      window.location.href = init.gateway_redirect_url;
     } catch (err) {
       setError(err instanceof Error ? err.message : "پرداخت ناموفق بود");
-    } finally {
       setPaying(false);
     }
   }
@@ -183,8 +184,8 @@ function SummaryPageInner() {
       </div>
 
       <div className="card mb-4 flex items-center justify-between border-purple bg-purple-tint">
-        <span className="text-sm font-bold text-navy">درگاه بانک ملی (دمو)</span>
-        <span className="h-4 w-4 rounded-full border-2 border-purple bg-purple" />
+        <span className="text-sm font-bold text-navy">پرداخت امن با درگاه زرین‌پال</span>
+        <span className="text-lg">🔒</span>
       </div>
 
       {error && <p className="mb-3 text-sm font-bold text-red-500">{error}</p>}

@@ -74,11 +74,8 @@ function LoginOtpPageInner() {
       <h2 className="mb-2 text-xl font-extrabold text-navy">
         کد تأیید را وارد کنید
       </h2>
-      <p className="mb-2 text-sm text-muted">
+      <p className="mb-6 text-sm text-muted">
         کد ۴ رقمی ارسال‌شده به {phone}
-      </p>
-      <p className="mb-6 text-xs font-bold text-purple-deep">
-        (دمو: کد همیشه ۱۲۳۴ است)
       </p>
 
       <div className="mb-6 flex justify-center gap-3" dir="ltr">

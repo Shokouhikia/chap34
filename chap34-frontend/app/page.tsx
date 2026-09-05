@@ -7,7 +7,6 @@ import {
   IconAward,
   IconCheck,
   IconDownload,
-  IconInstagram,
   IconPlay,
   IconPrinter,
   IconShield,
@@ -173,29 +172,6 @@ export default function HomePage() {
           ))}
         </div>
       </section>
-
-      <footer className="mt-6 border-t border-line py-12">
-        <div>
-          <span className="text-lg font-extrabold text-navy">Chap34</span>
-          <p className="mt-2 max-w-xs text-[13px] leading-relaxed text-muted">
-            سرویس ساخت عکس پرسنلی استاندارد ۳×۴ با هوش مصنوعی و امکان سفارش
-            چاپ.
-          </p>
-          <a
-            href="https://instagram.com/chap34"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="اینستاگرام Chap34"
-            className="mt-4 flex h-8 w-8 items-center justify-center rounded-full bg-purple-tint text-purple-deep transition hover:bg-purple hover:text-white"
-          >
-            <IconInstagram className="h-4 w-4" />
-          </a>
-        </div>
-
-        <p className="mt-10 border-t border-line pt-6 text-center text-[12px] text-muted sm:text-right">
-          © {new Date().getFullYear()} Chap34 — تمامی حقوق محفوظ است.
-        </p>
-      </footer>
     </div>
   );
 }

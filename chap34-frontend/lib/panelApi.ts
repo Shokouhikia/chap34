@@ -110,6 +110,17 @@ export type RedirectInput = {
   is_active: boolean;
 };
 
+export type ContactMessageRow = {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  subject: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+};
+
 export type OrderSummary = {
   id: string;
   order_code: string;
@@ -364,6 +375,10 @@ export const panelApi = {
     }) as Promise<RedirectRow>,
   deleteRedirect: (id: string) =>
     request(`/api/admin/redirects/${id}`, { method: "DELETE" }),
+  listContactMessages: () =>
+    request("/api/admin/contact-messages") as Promise<{ messages: ContactMessageRow[] }>,
+  markContactMessageRead: (id: string) =>
+    request(`/api/admin/contact-messages/${id}/read`, { method: "PATCH" }),
   listAtelierAccounts: () =>
     request("/api/admin/atelier-accounts") as Promise<
       {

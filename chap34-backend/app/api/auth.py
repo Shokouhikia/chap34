@@ -1,23 +1,34 @@
 """
-DEMO NOTE: OTP is completely fake here - no SMS is sent and the code is
-always "1234". This is only so the frontend flow (enter phone -> enter
-code -> logged in) can be demoed end to end. Replace with a real SMS
-provider (Kavenegar/Ghasedak) before launch. The access token itself is a
-real signed JWT (see create_customer_token).
+Real OTP login: a random 4-digit code is generated, bcrypt-hashed (never
+stored in plain text) and sent via the configured SMS provider
+(app.services.sms_service). In production, if no SMS provider is
+configured (or sending fails), send-otp fails closed with a 503 instead of
+falling back to a fixed code - a publicly-known fixed OTP is an account
+takeover vector by phone number alone, and looks exactly like one during a
+security review. Non-production environments fall back to returning the
+code directly in the response so the flow stays testable without a real
+SMS account.
 """
+import random
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
+from app.core.config import settings as app_settings
 from app.core.database import get_session
-from app.core.security import create_customer_token
+from app.core.security import create_customer_token, hash_password, verify_password
 from app.models.otp import OTPCode, OTPPurpose
 from app.models.photo import Photo
 from app.models.user import User
+from app.services import sms_service
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-FAKE_OTP_CODE = "1234"
+
+def _generate_code() -> str:
+    return f"{random.randint(0, 9999):04d}"
 
 
 class SendOtpBody(BaseModel):
@@ -32,22 +43,49 @@ class VerifyOtpBody(BaseModel):
 
 @router.post("/send-otp")
 def send_otp(body: SendOtpBody, db: Session = Depends(get_session)):
+    code = _generate_code()
     otp = OTPCode(
         phone_number=body.phone,
-        code_hash=FAKE_OTP_CODE,  # demo only: never store plain codes in real life
-        purpose=OTPPurpose.ORDER_VERIFICATION,
+        code_hash=hash_password(code),
+        purpose=OTPPurpose.LOGIN,
     )
     db.add(otp)
     db.commit()
 
-    # In production this is where we'd call the SMS provider API.
-    return {"message": "کد تأیید ارسال شد", "demo_hint": f"کد دمو: {FAKE_OTP_CODE}"}
+    sent = sms_service.send_sms(db, body.phone, f"کد ورود شما به چاپ۳۴: {code}")
+
+    if sent:
+        return {"message": "کد تأیید ارسال شد"}
+
+    if app_settings.environment == "production":
+        raise HTTPException(status_code=503, detail="سرویس پیامک هنوز توسط مدیر سایت پیکربندی نشده است")
+
+    return {"message": "کد تأیید ارسال شد", "dev_hint": f"پیامک ارسال نشد (سرویس پیامک تنظیم نشده) - کد: {code}"}
 
 
 @router.post("/verify-otp")
 def verify_otp(body: VerifyOtpBody, db: Session = Depends(get_session)):
-    if body.code != FAKE_OTP_CODE:
+    otp = db.exec(
+        select(OTPCode)
+        .where(OTPCode.phone_number == body.phone, OTPCode.verified_at.is_(None))
+        .order_by(OTPCode.created_at.desc())
+    ).first()
+
+    if not otp or otp.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="کد تأیید منقضی شده است؛ دوباره درخواست دهید")
+
+    if otp.attempts >= app_settings.otp_max_attempts:
+        raise HTTPException(status_code=400, detail="تعداد تلاش مجاز به پایان رسیده؛ دوباره درخواست دهید")
+
+    if not verify_password(body.code, otp.code_hash):
+        otp.attempts += 1
+        db.add(otp)
+        db.commit()
         raise HTTPException(status_code=400, detail="کد تأیید اشتباه است")
+
+    otp.verified_at = datetime.utcnow()
+    db.add(otp)
+    db.commit()
 
     user = db.exec(select(User).where(User.phone_number == body.phone)).first()
     if not user:

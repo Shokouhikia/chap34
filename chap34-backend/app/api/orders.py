@@ -1,14 +1,14 @@
 """
 Order + payment endpoints.
 
-DEMO NOTE: payment is faked - `/api/payment/init` returns a fake gateway
-URL instead of a real Zarinpal/IDPay redirect, and `/api/payment/callback`
-is called directly by the frontend instead of by a real gateway webhook.
-`/api/orders/{id}/advance` is a demo-only convenience endpoint that lets
-the frontend "fast forward" a paid order through its tracking timeline,
-so the tracking screen has something to show without a real print
-partner. Everything else (address handling, price computation) is real
-logic - only the external SMS/AI/payment calls are stubbed.
+Payment goes through the real Zarinpal gateway (app.services.zarinpal):
+`/api/payment/init` requests an authority from Zarinpal and returns its
+real StartPay redirect URL, and `/api/payment/verify` is called by the
+frontend's /checkout/payment-callback page (where Zarinpal redirects the
+customer's browser back to) to verify the payment server-to-server before
+marking the order paid. Address handling and price computation are real
+logic; only SMS (order confirmation) is best-effort/no-op until the admin
+configures an SMS provider in Settings.
 """
 import uuid
 from datetime import datetime
@@ -26,19 +26,12 @@ from app.models.order import Order, OrderStatus, OrderStatusHistory, PaperType, 
 from app.models.payment import Payment, PaymentGateway, PaymentStatus
 from app.models.photo import Photo
 from app.models.print_job import PrintJob
+from app.models.setting import KEY_BASE_URL
 from app.models.user import User
+from app.services import notifications, settings_service, zarinpal
 from app.services.codes import next_order_code
 
 router = APIRouter(prefix="/api", tags=["orders"])
-
-STATUS_SEQUENCE = [
-    OrderStatus.CREATED,
-    OrderStatus.PAID,
-    OrderStatus.PREPARING,
-    OrderStatus.PRINTED,
-    OrderStatus.SHIPPED,
-    OrderStatus.DELIVERED,
-]
 
 
 class AddressIn(BaseModel):
@@ -193,10 +186,37 @@ def init_payment(
     if not order or order.user_id != user.id:
         raise HTTPException(status_code=404, detail="سفارش یافت نشد")
 
+    if not zarinpal.is_configured(db):
+        raise HTTPException(
+            status_code=503,
+            detail="درگاه پرداخت هنوز توسط مدیر سایت پیکربندی نشده است",
+        )
+
+    base_url = (settings_service.get_value(db, KEY_BASE_URL) or "").rstrip("/")
+    if not base_url:
+        raise HTTPException(
+            status_code=503,
+            detail="Base URL سایت در تنظیمات وارد نشده؛ بدون آن درگاه پرداخت نمی‌تواند کاربر را بازگرداند",
+        )
+
+    address = db.get(Address, order.address_id)
+    callback_url = f"{base_url}/checkout/payment-callback?order_id={order.id}"
+
+    try:
+        authority, redirect_url = zarinpal.request_payment(
+            db,
+            amount_toman=order.total_price,
+            description=f"سفارش چاپ عکس پرسنلی {order.order_code}",
+            callback_url=callback_url,
+            mobile=address.phone_number if address else None,
+        )
+    except zarinpal.ZarinpalError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
     payment = Payment(
         order_id=order.id,
         gateway=PaymentGateway.ZARINPAL,
-        authority=f"DEMO-{uuid.uuid4().hex[:10]}",
+        authority=authority,
         amount=order.total_price,
         status=PaymentStatus.PENDING,
     )
@@ -204,56 +224,65 @@ def init_payment(
     db.commit()
     db.refresh(payment)
 
-    # DEMO: a real integration would redirect the user to the gateway's
-    # real URL; here we just hand back a fake one the frontend can "follow".
-    return {
-        "payment_id": payment.id,
-        "gateway_redirect_url": f"/fake-gateway?authority={payment.authority}",
-    }
+    return {"payment_id": payment.id, "gateway_redirect_url": redirect_url}
 
 
-@router.post("/payment/callback")
-def payment_callback(
-    payment_id: uuid.UUID,
+@router.get("/payment/verify")
+def verify_payment(
+    order_id: uuid.UUID,
+    Authority: str,
+    Status: str,
     db: Session = Depends(get_session),
 ):
-    """DEMO: stands in for the gateway's real server-to-server webhook.
-    The frontend calls this directly to simulate a successful payment."""
-    payment = db.get(Payment, payment_id)
+    """
+    Called by the frontend's /checkout/payment-callback page, which is
+    where Zarinpal redirects the customer's browser back to with these
+    same query params after they pay (or cancel) on the gateway's own site.
+    """
+    order = db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="سفارش یافت نشد")
+
+    payment = db.exec(
+        select(Payment)
+        .where(Payment.order_id == order.id, Payment.authority == Authority)
+        .order_by(Payment.created_at.desc())
+    ).first()
     if not payment:
         raise HTTPException(status_code=404, detail="پرداخت یافت نشد")
 
+    if Status != "OK":
+        payment.status = PaymentStatus.FAILED
+        db.add(payment)
+        db.commit()
+        return {"order_id": order.id, "status": order.status, "payment_status": "failed"}
+
+    try:
+        success, ref_id = zarinpal.verify_payment(db, amount_toman=payment.amount, authority=Authority)
+    except zarinpal.ZarinpalError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    if not success:
+        payment.status = PaymentStatus.FAILED
+        db.add(payment)
+        db.commit()
+        return {"order_id": order.id, "status": order.status, "payment_status": "failed"}
+
     payment.status = PaymentStatus.SUCCESS
-    payment.ref_id = f"DEMO-REF-{uuid.uuid4().hex[:8]}"
+    payment.ref_id = ref_id
+    payment.paid_at = datetime.utcnow()
     db.add(payment)
     db.commit()
 
-    order = db.get(Order, payment.order_id)
-    _log_status(db, order, OrderStatus.PAID, note="پرداخت دمو با موفقیت انجام شد")
-    db.add(PrintJob(order_id=order.id, printer_partner="چاپخانه دمو"))
+    _log_status(db, order, OrderStatus.PAID, note=f"پرداخت زرین‌پال تأیید شد (ref_id={ref_id})")
+    db.add(PrintJob(order_id=order.id, printer_partner="چاپخانه چاپ۳۴"))
     db.commit()
 
-    return {"order_id": order.id, "status": order.status}
+    address = db.get(Address, order.address_id)
+    if address:
+        notifications.send_order_confirmation(db, order, address)
 
-
-@router.post("/orders/{order_id}/advance")
-def advance_status(
-    order_id: uuid.UUID,
-    db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
-):
-    """DEMO ONLY: pushes the order to its next timeline status so the
-    tracking screen can be demoed without a real print/ship cycle."""
-    order = db.get(Order, order_id)
-    if not order or order.user_id != user.id:
-        raise HTTPException(status_code=404, detail="سفارش یافت نشد")
-
-    current_index = STATUS_SEQUENCE.index(order.status)
-    if current_index >= len(STATUS_SEQUENCE) - 1:
-        return order
-
-    _log_status(db, order, STATUS_SEQUENCE[current_index + 1])
-    return order
+    return {"order_id": order.id, "status": order.status, "payment_status": "success"}
 
 
 @router.get("/orders/{order_id}/status")

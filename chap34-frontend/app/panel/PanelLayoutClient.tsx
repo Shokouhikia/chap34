@@ -13,6 +13,8 @@ const ADMIN_NAV = [
   { href: "/panel/admin/customers", label: "مشتری‌ها" },
   { href: "/panel/admin/discounts", label: "کدهای تخفیف" },
   { href: "/panel/admin/accounts", label: "حساب‌های آتلیه" },
+  { href: "/panel/admin/messages", label: "پیام‌های تماس" },
+  { href: "/panel/admin/business-info", label: "اطلاعات کسب‌وکار" },
   { href: "/panel/admin/redirects", label: "ریدایرکت‌ها" },
   { href: "/panel/admin/settings", label: "تنظیمات" },
 ];
